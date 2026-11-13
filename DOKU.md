@@ -91,11 +91,39 @@ Zurücknehmen: dieselben Befehle mit `default` statt `allow`.
   ```
   Ausgabe in `docs/screenshots/`.
 - CI: `.github/workflows/build.yml` führt bei jedem Push die Tests aus, baut die Debug-APK und lädt sie als Artefakt `app-debug` hoch.
-- Signatur: Debug-APKs aus verschiedenen Quellen (lokal oder CI) haben unterschiedliche Debug-Schlüssel. Beim Wechsel vorher deinstallieren:
+
+### Release
+
+`.github/workflows/release.yml` baut die APK und legt einen GitHub-Release mit dem Asset `TV-Ambilight.apk` an. Der Dateiname bleibt immer gleich, daher zeigt `https://github.com/hxcde/AndroidTV-Ambilight/releases/latest/download/TV-Ambilight.apk` stets auf die neueste Version.
+
+Auslösen:
+- per Tag (vorher `versionName`/`versionCode` in `app/build.gradle.kts` erhöhen):
   ```bash
-  adb uninstall io.github.hxcde.ambilight
+  git tag v0.2.0
   ```
-  Release-Signatur ist noch nicht eingerichtet (`<offen>`; Keystore nie committen).
+  ```bash
+  git push origin v0.2.0
+  ```
+- oder in GitHub unter Actions → Release → „Run workflow“ mit Tag, z. B. `v0.2.0`.
+
+### Signatur
+
+Ohne hinterlegten Schlüssel signiert der Release-Workflow mit dem Debug-Schlüssel des CI-Laufs. Der wechselt bei jedem Lauf, Updates erfordern dann eine Deinstallation:
+
+```bash
+adb uninstall io.github.hxcde.ambilight
+```
+
+Für Updates ohne Deinstallation einmalig einen eigenen Schlüssel anlegen (lokal, sicher aufbewahren, **nie committen**):
+
+```bash
+keytool -genkeypair -v -keystore tv-ambilight-release.jks -alias ambilight -keyalg RSA -keysize 4096 -validity 10000
+```
+```bash
+base64 -w0 tv-ambilight-release.jks
+```
+
+Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets anlegen: `RELEASE_KEYSTORE_BASE64` (Ausgabe von `base64`), `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` (`ambilight`), `RELEASE_KEY_PASSWORD`. Ab dann baut der Workflow eine signierte, mit R8 optimierte Release-APK. Beim Wechsel von Debug- auf Release-Signatur einmal deinstallieren.
 
 ## Betrieb & Wartung
 

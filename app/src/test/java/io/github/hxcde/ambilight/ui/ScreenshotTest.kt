@@ -9,7 +9,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.matcher.ViewMatchers.isRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.github.takahirom.roborazzi.captureScreenRoboImage
 import io.github.hxcde.ambilight.AppSettings
 import io.github.hxcde.ambilight.R
 import io.github.hxcde.ambilight.service.AmbilightState
@@ -26,9 +28,10 @@ import org.robolectric.shadows.ShadowLooper
  * Erzeugt Screenshots der Oberfläche in TV-Auflösung (1920×1080).
  * Aufnehmen: ./gradlew recordRoborazziDebug  →  docs/screenshots/
  */
+@OptIn(ExperimentalRoborazziApi::class)
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w960dp-h540dp-land-television-xhdpi")
+@Config(sdk = [35], qualifiers = "de-w960dp-h540dp-land-television-xhdpi")
 class ScreenshotTest {
 
     private val dir = "../docs/screenshots"
@@ -65,8 +68,9 @@ class ScreenshotTest {
         AmbilightState.update {
             it.copy(mode = Mode.ACTIVE, mqttConnected = true, leftColor = 0xFFE0702A.toInt(), rightColor = 0xFF2A8FE0.toInt())
         }
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             idle()
+            focus(scenario, R.id.button_start_stop)
             onView(isRoot()).captureRoboImage("$dir/02_start_aktiv.png")
         }
     }
@@ -94,6 +98,45 @@ class ScreenshotTest {
             scrollTo(scenario, AppSettings.K_APP_TOPIC)
             onView(isRoot()).captureRoboImage("$dir/07_einstellungen_home_assistant.png")
         }
+    }
+
+    @Test
+    fun verbindungstest() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            idle()
+            scenario.onActivity { it.findViewById<android.widget.TextView>(R.id.text_test_result).setText(R.string.test_ok) }
+            focus(scenario, R.id.button_test)
+            onView(isRoot()).captureRoboImage("$dir/08_verbindungstest.png")
+        }
+    }
+
+    @Test
+    fun dialog_ersatzmodus() = dialog(AppSettings.K_BLACK_MODE, "09_dialog_ersatzmodus.png")
+
+    @Test
+    fun dialog_farbauswahl() = dialog(AppSettings.K_BLACK_COLOR_LEFT, "10_dialog_farbauswahl.png")
+
+    private fun dialog(key: String, file: String) {
+        ActivityScenario.launch(SettingsActivity::class.java).use { scenario ->
+            idle()
+            scrollTo(scenario, key)
+            scenario.onActivity { activity ->
+                val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings_container) as PreferenceFragmentCompat
+                fragment.findPreference<androidx.preference.Preference>(key)!!.performClick()
+            }
+            idle()
+            captureScreenRoboImage("$dir/$file")
+        }
+    }
+
+    /** Fokusrahmen wie mit der Fernbedienung sichtbar machen (Robolectric läuft im Touch-Modus). */
+    private fun focus(scenario: ActivityScenario<MainActivity>, id: Int) {
+        scenario.onActivity {
+            val v = it.findViewById<android.view.View>(id)
+            v.isFocusableInTouchMode = true
+            v.requestFocus()
+        }
+        idle()
     }
 
     private fun scrollTo(scenario: ActivityScenario<SettingsActivity>, key: String) {

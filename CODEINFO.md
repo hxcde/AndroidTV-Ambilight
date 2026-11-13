@@ -36,6 +36,7 @@ app/src/main/
 app/src/test/                    JVM-Unit-Tests + Robolectric/Roborazzi-Screenshots (ui/ScreenshotTest.kt)
 docs/screenshots/                Erzeugte Screenshots (TV-Auflösung 1920×1080)
 .github/workflows/build.yml      CI: Tests, APK-Build, Upload als Artefakt
+.github/workflows/release.yml    Release bei Tag v* oder manuell: APK als Release-Asset TV-Ambilight.apk
 ```
 
 ## Module & Zuständigkeiten
@@ -66,4 +67,4 @@ Home Assistant: Der Dienst abonniert `<app_topic>/set` (ON/OFF = aktiv/pausiert)
 - `ui/MainActivity.kt`: Launcher-Activity (LAUNCHER + LEANBACK_LAUNCHER)
 - `service/AmbilightService.kt`: `onStartCommand()` (Start mit Freigabe-Intent), `onFrame()`, `checkBlackTimeout()`
 - `AppSettings.kt`: alle Einstellungen und Defaults
-- `app/build.gradle.kts`: SDK-Versionen und Abhängigkeiten
+- `app/build.gradle.kts`: SDK-Versionen, Abhängigkeiten, Release-Signatur über Umgebungsvariablen `RELEASE_KEYSTORE_FILE`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`

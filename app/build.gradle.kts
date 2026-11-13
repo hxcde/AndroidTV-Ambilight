@@ -4,6 +4,9 @@ plugins {
     id("io.github.takahirom.roborazzi")
 }
 
+// Release-Signatur nur über Umgebungsvariablen (CI-Secrets), nie im Repo
+val releaseKeystore: String? = System.getenv("RELEASE_KEYSTORE_FILE")
+
 android {
     namespace = "io.github.hxcde.ambilight"
     compileSdk = 35
@@ -16,10 +19,22 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
