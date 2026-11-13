@@ -1,0 +1,18 @@
+# Gradle / Build
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Signierschlüssel und Geheimnisse nie committen
+*.jks
+*.keystore
+keystore.properties
+.env

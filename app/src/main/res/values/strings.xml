@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TV Ambilight</string>
+    <string name="notification_channel">Ambilight-Dienst</string>
+
+    <string name="action_start">Ambilight starten</string>
+    <string name="action_stop">Ambilight stoppen</string>
+    <string name="action_settings">Einstellungen</string>
+    <string name="action_test">Verbindung testen</string>
+
+    <string name="status_mode">Status: %1$s</string>
+    <string name="status_mqtt">MQTT: %1$s</string>
+    <string name="mqtt_connected">verbunden</string>
+    <string name="mqtt_connecting">verbinde …</string>
+    <string name="mqtt_error">getrennt (%1$s)</string>
+    <string name="preview_left">Links</string>
+    <string name="preview_right">Rechts</string>
+    <string name="preview_tv">TV</string>
+    <string name="version">Version %1$s</string>
+
+    <string name="test_no_host">Bitte zuerst den MQTT-Broker in den Einstellungen eintragen.</string>
+    <string name="test_running">Teste Verbindung …</string>
+    <string name="test_ok">Verbindung OK. Links sollte jetzt rot, rechts blau leuchten.</string>
+    <string name="test_ok_no_lights">Verbindung OK. Noch keine Lampen eingetragen.</string>
+    <string name="test_failed">Fehler: %1$s</string>
+
+    <string name="hint_drm">Netflix, Prime Video und andere DRM-geschützte Apps liefern nur ein schwarzes Bild. Dann greift der Ersatzmodus aus den Einstellungen.</string>
+    <string name="hint_adb">Kein Freigabe-Dialog oder Autostart gewünscht? ADB-Befehle siehe README.</string>
+
+    <string name="capture_denied">Bildschirmfreigabe abgelehnt.</string>
+    <string name="capture_unavailable">Dieses Gerät bietet keine Bildschirmfreigabe an. Siehe README (ADB-Freigabe).</string>
+    <string name="not_configured">Bitte zuerst Broker und Lampen in den Einstellungen eintragen.</string>
+    <string name="not_set">nicht gesetzt</string>
+    <string name="invalid_hex">Ungültige Farbe. Format: #RRGGBB, z. B. #8000FF</string>
+
+    <!-- Einstellungen -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_note">Änderungen gelten ab dem nächsten Start des Ambilights.</string>
+
+    <string name="cat_mqtt">MQTT-Broker</string>
+    <string name="pref_host">Broker-Adresse</string>
+    <string name="pref_port">Port</string>
+    <string name="pref_tls">TLS verwenden</string>
+    <string name="pref_tls_summary">Nur mit gültigem Zertifikat (meist Port 8883)</string>
+    <string name="pref_user">Benutzer</string>
+    <string name="pref_password">Passwort</string>
+
+    <string name="cat_z2m">Zigbee2MQTT</string>
+    <string name="pref_base_topic">Base-Topic</string>
+    <string name="pref_light_left">Lampe links (Friendly Name)</string>
+    <string name="pref_light_right">Lampe rechts (Friendly Name)</string>
+
+    <string name="cat_picture">Bild und Farbe</string>
+    <string name="pref_rate">Updates pro Sekunde</string>
+    <string name="pref_rate_summary">Mehr = reaktiver, aber mehr Last im Zigbee-Netz (empfohlen 4–6)</string>
+    <string name="pref_transition">Übergangszeit (ms)</string>
+    <string name="pref_transition_summary">0 = automatisch passend zur Update-Rate</string>
+    <string name="pref_zone">Randzone (% der Bildbreite)</string>
+    <string name="pref_smoothing">Glättung (%)</string>
+    <string name="pref_saturation">Sättigung (%)</string>
+    <string name="pref_min_brightness">Minimale Helligkeit</string>
+    <string name="pref_max_brightness">Maximale Helligkeit</string>
+
+    <string name="cat_black">Geschützte Inhalte (Netflix, Prime …)</string>
+    <string name="pref_black_mode">Bei schwarzem Bild</string>
+    <string name="pref_black_color_left">Farbe links</string>
+    <string name="pref_black_color_right">Farbe rechts</string>
+    <string name="pref_black_custom_left">Eigene Farbe links (#RRGGBB)</string>
+    <string name="pref_black_custom_right">Eigene Farbe rechts (#RRGGBB)</string>
+    <string name="pref_black_brightness">Helligkeit im Ersatzmodus</string>
+
+    <string name="cat_behavior">Verhalten</string>
+    <string name="pref_off_standby">Licht aus bei TV-Standby</string>
+    <string name="pref_off_stop">Licht aus beim Stoppen</string>
+    <string name="pref_autostart">Autostart nach dem Einschalten</string>
+    <string name="pref_autostart_summary">Benötigt einmalige ADB-Freigaben, siehe README</string>
+
+    <string name="cat_ha">Home Assistant</string>
+    <string name="pref_ha_discovery">MQTT-Discovery</string>
+    <string name="pref_ha_discovery_summary">Legt den Schalter „Ambilight“ und den Sensor „Ambilight Modus“ an</string>
+    <string name="pref_ha_prefix">Discovery-Prefix</string>
+    <string name="pref_app_topic">Topic dieser App</string>
+</resources>
