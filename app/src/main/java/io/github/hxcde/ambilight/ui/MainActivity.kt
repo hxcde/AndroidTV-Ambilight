@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.button_settings).setOnClickListener { openSettings() }
         findViewById<Button>(R.id.button_test).setOnClickListener { runConnectionTest() }
+        findViewById<Button>(R.id.button_setup).setOnClickListener { startActivity(Intent(this, SetupActivity::class.java)) }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -69,6 +70,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         startStop.requestFocus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val missing = Permissions.missing(this)
+        findViewById<Button>(R.id.button_setup).text =
+            if (missing == 0) getString(R.string.action_setup) else getString(R.string.action_setup_missing, missing)
     }
 
     private fun render(s: Status) {

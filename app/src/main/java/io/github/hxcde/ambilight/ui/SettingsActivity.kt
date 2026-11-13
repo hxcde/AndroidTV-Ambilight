@@ -115,6 +115,11 @@ class SettingsActivity : AppCompatActivity() {
             list.entries = Options.SCENE_COLOR.map { it.label }.toTypedArray()
             list.entryValues = Options.SCENE_COLOR.map { it.value }.toTypedArray()
             val update = { v: String? -> list.icon = swatch((FixedColor.parse(v) ?: FixedColor.DEFAULT).previewArgb) }
+            // Aus Home Assistant gesetzte Farben stehen als #RRGGBB in der Auswahl
+            list.setSummaryProvider { p ->
+                val v = (p as ListPreference).value
+                Options.labelOf(Options.SCENE_COLOR, v) ?: v?.uppercase() ?: getString(R.string.not_set)
+            }
             update(list.value)
             list.setOnPreferenceChangeListener { _, newValue ->
                 update(newValue as String)

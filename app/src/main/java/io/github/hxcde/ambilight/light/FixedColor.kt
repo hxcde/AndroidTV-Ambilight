@@ -40,5 +40,8 @@ data class FixedColor(val x: Double, val y: Double, val previewArgb: Int) {
         }
 
         fun isValidHex(hex: String?): Boolean = hex != null && fromHex(hex) != null
+
+        /** 0xAARRGGBB → "#RRGGBB". */
+        fun hex(argb: Int): String = "#%06X".format(argb and 0xFFFFFF)
     }
 }

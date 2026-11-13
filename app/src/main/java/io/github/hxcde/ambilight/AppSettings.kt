@@ -58,9 +58,12 @@ class AppSettings(private val prefs: SharedPreferences) {
     val blackColorLeft: FixedColor get() = fixedColor(K_BLACK_COLOR_LEFT, K_BLACK_COLOR_LEFT_CUSTOM)
     val blackColorRight: FixedColor get() = fixedColor(K_BLACK_COLOR_RIGHT, K_BLACK_COLOR_RIGHT_CUSTOM)
 
-    private fun fixedColor(listKey: String, customKey: String): FixedColor {
-        val choice = str(listKey, FixedColor.WARM)
-        val value = if (choice == FixedColor.CUSTOM) str(customKey, "") else choice
+    private fun fixedColor(listKey: String, customKey: String): FixedColor = resolveColor(listKey, customKey)
+
+    /** Farbe aus Auswahl (Vorgabe oder `#RRGGBB`), bei `custom` aus dem separaten Hex-Feld. */
+    fun resolveColor(colorKey: String, customKey: String?): FixedColor {
+        val choice = str(colorKey, FixedColor.WARM)
+        val value = if (choice == FixedColor.CUSTOM && customKey != null) str(customKey, "") else choice
         return FixedColor.parse(value) ?: FixedColor.DEFAULT
     }
     val blackDelayMs: Long get() = 2_000L

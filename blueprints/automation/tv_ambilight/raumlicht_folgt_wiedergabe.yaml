@@ -1,0 +1,92 @@
+blueprint:
+  name: TV Ambilight – Raumlicht folgt der Wiedergabe
+  description: >-
+    Dimmt das Raumlicht, wenn am TV etwas abgespielt wird, und macht es bei Pause
+    heller. Nutzt den Sensor „Wiedergabe“ des Geräts „TV Ambilight“
+    (Pause-Erkennung muss in der App freigegeben sein).
+  domain: automation
+  source_url: https://github.com/hxcde/AndroidTV-Ambilight/blob/HEAD/blueprints/automation/tv_ambilight/raumlicht_folgt_wiedergabe.yaml
+  input:
+    playback_sensor:
+      name: Wiedergabe-Sensor
+      description: Sensor „Wiedergabe“ des Geräts „TV Ambilight“.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+    room_lights:
+      name: Raumlicht
+      description: Lampen, die mitgesteuert werden (nicht die Ambilight-Lampen).
+      selector:
+        target:
+          entity:
+            - domain: light
+    play_brightness:
+      name: Helligkeit beim Abspielen
+      description: 0 % schaltet das Raumlicht aus.
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    pause_brightness:
+      name: Helligkeit bei Pause
+      default: 40
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+    pause_delay:
+      name: Verzögerung bei Pause
+      description: Erst nach dieser Pausendauer heller werden (kurzes Spulen ignorieren).
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+    transition:
+      name: Übergang
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 10
+          unit_of_measurement: s
+
+mode: restart
+
+triggers:
+  - trigger: state
+    entity_id: !input playback_sensor
+    to: Spielt
+    id: play
+  - trigger: state
+    entity_id: !input playback_sensor
+    to: Pausiert
+    for:
+      seconds: !input pause_delay
+    id: pause
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: play
+        sequence:
+          - action: light.turn_on
+            target: !input room_lights
+            data:
+              brightness_pct: !input play_brightness
+              transition: !input transition
+      - conditions:
+          - condition: trigger
+            id: pause
+        sequence:
+          - action: light.turn_on
+            target: !input room_lights
+            data:
+              brightness_pct: !input pause_brightness
+              transition: !input transition

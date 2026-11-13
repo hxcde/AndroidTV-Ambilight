@@ -42,9 +42,11 @@ import io.github.hxcde.ambilight.engine.AppProfiles
 import io.github.hxcde.ambilight.engine.EngineOutput
 import io.github.hxcde.ambilight.engine.Mode
 import io.github.hxcde.ambilight.engine.Playback
+import io.github.hxcde.ambilight.light.FixedColor
 import io.github.hxcde.ambilight.light.LightOutput
 import io.github.hxcde.ambilight.mqtt.HaEntities
 import io.github.hxcde.ambilight.mqtt.HaEntity
+import io.github.hxcde.ambilight.mqtt.HaLight
 import io.github.hxcde.ambilight.mqtt.HaNumber
 import io.github.hxcde.ambilight.mqtt.HaSelect
 import io.github.hxcde.ambilight.mqtt.HaSwitch
@@ -94,6 +96,10 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
     private var mediaAvailable = false
     private var playback = Playback.NONE
     private var statsRound = 0
+    private var liveLeft = 0
+    private var liveRight = 0
+    private var livePublished = ""
+    private var liveRound = 0
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -122,6 +128,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         override fun run() {
             pollForegroundApp()
             pollMedia()
+            if (++liveRound % 2 == 0) publishLive()
             handler.postDelayed(this, 1_000)
         }
     }
@@ -209,7 +216,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         ha = h
         val will = MqttPackets.Will(h.statusTopic, "offline".toByteArray(), retain = true)
         mqtt = MqttConnection(settings.mqttConfig(will), mqttListener) { Log.i(TAG, it) }.also {
-            it.start(listOf(h.setTopic, h.birthTopic, h.configSetFilter) + e.outputs.map { o -> o.stateTopic })
+            it.start(listOf(h.setTopic, h.birthTopic, h.configSetFilter, h.commandTopic) + e.outputs.map { o -> o.stateTopic })
         }
         AmbilightState.update { it.copy(mqttConnected = false, mqttError = null) }
     }
@@ -254,6 +261,8 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         }
 
         override fun preview(left: Int, right: Int) {
+            liveLeft = left
+            liveRight = right
             AmbilightState.update { it.copy(leftColor = left, rightColor = right) }
         }
     }
@@ -445,12 +454,13 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         engine?.updateConfig(settings.engineConfig, now)
         engine?.setAppAction(currentAppAction(), now)
         if (key == AppSettings.K_HA_DISCOVERY) publishDiscovery()
-        HaEntities.byPrefKey(key)?.let { publishEntityState(it) }
+        HaEntities.affectedBy(key).forEach { publishEntityState(it) }
     }
 
     // ---------------------------------------------------------------- MQTT / Home Assistant
 
     private fun onMqttConnected() {
+        livePublished = ""
         engine?.onConnected(SystemClock.elapsedRealtime())
         publishAll()
     }
@@ -473,6 +483,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         val enabled = settings.haDiscovery
         // Leerer, gehaltener Payload entfernt die Entitäten wieder aus Home Assistant
         h.discovery().forEach { (topic, payload) -> m.publish(topic, if (enabled) payload else "", retain = true) }
+        h.legacyConfigTopics().forEach { m.publish(it, "", retain = true) }
     }
 
     private fun publishEntityState(e: HaEntity) {
@@ -481,8 +492,20 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
             is HaNumber -> prefs.getInt(e.prefKey, e.default).toString()
             is HaSelect -> e.label(prefs.getString(e.prefKey, e.default))
             is HaSwitch -> if (prefs.getBoolean(e.prefKey, e.default)) "ON" else "OFF"
+            is HaLight -> e.state(settings.resolveColor(e.colorKey, e.customKey), prefs.getInt(e.brightnessKey, e.brightnessDefault))
         }
         mqtt?.publish(h.configStateTopic(e.id), value, retain = true)
+    }
+
+    /** Aktuelle Lampenfarben an Home Assistant (höchstens alle 2 s, nur bei Änderung). */
+    private fun publishLive() {
+        val h = ha ?: return
+        fun rgb(c: Int) = "[${(c shr 16) and 0xFF},${(c shr 8) and 0xFF},${c and 0xFF}]"
+        val json = """{"left":"${FixedColor.hex(liveLeft)}","right":"${FixedColor.hex(liveRight)}",""" +
+            """"left_rgb":${rgb(liveLeft)},"right_rgb":${rgb(liveRight)}}"""
+        if (json == livePublished) return
+        livePublished = json
+        mqtt?.publish(h.liveTopic, json, retain = false)
     }
 
     private fun publishStats() {
@@ -511,6 +534,10 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
                 "OFF" -> setHaPaused(true)
             }
             topic == h.birthTopic -> if (payload == "online") publishAll()
+            topic == h.commandTopic -> if (payload.uppercase() == "STOP") {
+                Log.i(TAG, "Beenden per Home Assistant")
+                stopSelf()
+            }
             h.idFromSetTopic(topic) != null -> onEntityCommand(h.idFromSetTopic(topic)!!, payload)
             else -> engine?.onLightState(topic, payload, now)
         }
@@ -523,6 +550,19 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
             is HaNumber -> e.parse(payload)?.let { v -> prefs.edit { putInt(e.prefKey, v) } }
             is HaSelect -> e.parse(payload)?.let { v -> prefs.edit { putString(e.prefKey, v) } }
             is HaSwitch -> e.parse(payload)?.let { v -> prefs.edit { putBoolean(e.prefKey, v) } }
+            is HaLight -> HaLight.parse(payload)?.let { c ->
+                prefs.edit {
+                    c.hex?.let { hex ->
+                        if (e.customKey != null) {
+                            putString(e.colorKey, FixedColor.CUSTOM)
+                            putString(e.customKey, hex)
+                        } else {
+                            putString(e.colorKey, hex)
+                        }
+                    }
+                    c.brightness?.let { putInt(e.brightnessKey, it) }
+                }
+            }
         }
         // Gleicher Wert löst keinen Listener aus: Status trotzdem bestätigen
         publishEntityState(e)

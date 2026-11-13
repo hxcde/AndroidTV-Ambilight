@@ -42,6 +42,8 @@ flowchart LR
 - **Vorheriges Licht wiederherstellen:** Vor dem Start merkt sich die App den Zustand der Lampen und kann ihn bei Standby bzw. Stopp wiederherstellen.
 - **Statistik auf der Startseite:** Bilder/s, MQTT- und Zigbee-Befehle/s, Verzögerung bis zur Lampe (Ø und max) und verworfene Updates
 - **Home Assistant:** Schalter zum Pausieren, Sensoren (Modus, aktive App, Wiedergabe, Verzögerung, Zigbee-Last) und alle wichtigen Einstellungen als steuerbare Entitäten, automatisch per MQTT-Discovery
+- **Home Assistant, erweitert:** Ersatz-, Standard- und Pausenlicht per **Farbrad**, **Live-Farben** der Lampen als Sensoren, **Beenden-Button**, Start aus HA per Android-TV-Remote-Integration, fertige **Blueprints**
+- **Einrichtungsseite:** zeigt, welche optionalen Freigaben fehlen, wofür sie gut sind und wie man sie erteilt
 - **Einstellungen gelten sofort**, auch während das Ambilight läuft
 - Erkennung von Kino- und 4:3-Balken
 - Verbindungstest auf Knopfdruck: links rot, rechts blau
@@ -67,12 +69,18 @@ flowchart LR
 |---|---|
 | ![Verbindungstest](docs/screenshots/09_verbindungstest.png) | Prüft Broker, Login und Lampen-Namen, ohne das Ambilight zu starten: Die linke Lampe leuchtet rot, die rechte blau. So siehst du auch sofort, ob links und rechts vertauscht sind. |
 
+### Einrichtungsseite
+
+![Einrichtung](docs/screenshots/16_einrichtung.png)
+
+Über **Einrichtung** auf der Startseite (zeigt „(2 offen)“, solange Freigaben fehlen). Für jede optionale Freigabe: Status, wofür sie gut ist, ein Knopf zur passenden TV-Einstellung (wenn der TV sie anbietet) und der ADB-Befehl. Unten steht ein einziger Befehl, der alles auf einmal freigibt.
+
 ### Läuft die App im Hintergrund?
 
 Ja. Es muss nichts zusätzlich installiert werden: Der Dienst ist Teil der App und läuft als Android-Vordergrunddienst (mit Benachrichtigung „TV Ambilight“) weiter, wenn du die App verlässt, die App wechselst oder den TV in den Standby schickst. Er endet erst, wenn du ihn stoppst (Startseite oder Benachrichtigung).
 
 - **TV aus/an (Standby):** Der Dienst bleibt aktiv, schaltet beim Ausschalten die Lampen aus und beim Einschalten auf das Standardlicht.
-- **Kaltstart** (Netzstecker, Neustart, Update): Danach läuft der Dienst nur mit **Autostart** wieder an. Dafür braucht es einmalig die ADB-Freigaben `PROJECT_MEDIA` und `SYSTEM_ALERT_WINDOW` (siehe [Installation](#optionale-adb-freigaben)).
+- **Kaltstart** (Netzstecker, Neustart, Update): Danach läuft der Dienst nur mit **Autostart** wieder an. Dafür braucht es einmalig die ADB-Freigaben `PROJECT_MEDIA` und `SYSTEM_ALERT_WINDOW` (siehe [Installation](#brauche-ich-adb)).
 - Beendet die TCL-Firmware die Bildaufnahme im Standby, fragt die App sie beim Einschalten automatisch neu an (ebenfalls mit Autostart).
 
 #### Statistik lesen
@@ -113,7 +121,7 @@ Alle Änderungen gelten sofort, auch während das Ambilight läuft. Geänderte B
 
 Streaming-Apps mit Kopierschutz (DRM) geben Android bei der Bildschirmaufnahme nur ein schwarzes Bild. Das ist vom System so gewollt und lässt sich per App nicht umgehen. Dafür gibt es zwei Auslöser:
 
-1. **App-Profil (empfohlen):** Die App erkennt Netflix & Co beim Öffnen und schaltet sofort um, ohne schwarze Pause. Braucht einmalig eine ADB-Freigabe (siehe [Installation](#optionale-adb-freigaben)).
+1. **App-Profil (empfohlen):** Die App erkennt Netflix & Co beim Öffnen und schaltet sofort um, ohne schwarze Pause. Braucht einmalig eine ADB-Freigabe (siehe [Installation](#brauche-ich-adb)).
 2. **Schwarzbild-Erkennung:** Ist das Bild länger als 2 Sekunden **komplett** schwarz, greift der Ersatzmodus ebenfalls. Bis dahin bleibt die letzte Farbe stehen. Normale dunkle Filmszenen lösen das nicht aus, denn echtes Videobild ist praktisch nie exakt schwarz.
 
 | Verhalten wählen | Farbe pro Lampe |
@@ -152,58 +160,69 @@ Mit aktiver MQTT-Discovery erscheint in Home Assistant automatisch das Gerät **
 | Entität | Typ | Funktion |
 |---|---|---|
 | Ambilight | Schalter | Aus = pausiert: Die App sendet nichts mehr, Home Assistant kann die Lampen frei steuern. An = Ambilight läuft weiter. |
+| Ambilight beenden | Button | Beendet das Ambilight komplett (wie „Stoppen“ in der App) |
 | Ambilight Modus | Sensor | `Aktiv`, `Standardlicht`, `Pausenlicht`, `Pausiert (Home Assistant)`, `Geschützter Inhalt`, `Ersatzmodus (App-Profil)`, `Standardlicht (App-Profil)`, `Licht aus (App-Profil)`, `Standby`, `Gestoppt` |
 | Aktive App | Sensor | Name der App im Vordergrund, z. B. `Netflix` |
 | Wiedergabe | Sensor | `Spielt`, `Pausiert`, `–` |
+| Farbe links, Farbe rechts | Sensoren | Aktuelle Lampenfarbe als `#RRGGBB`, Attribut `rgb_color` für Dashboards; höchstens alle 2 s aktualisiert |
 | Verzögerung, Zigbee-Befehle | Sensoren (Diagnose) | Ø-Verzögerung in ms und Zigbee-Befehle pro Sekunde, alle 10 s aktualisiert |
-| Helligkeit maximal/minimal, Updates pro Sekunde, Glättung, Sättigung, Ersatzmodus Helligkeit | Zahlen (Konfiguration) | Schieberegler, wirken sofort |
-| Standardlicht Helligkeit, Pausenlicht Helligkeit | Zahlen (Konfiguration) | Schieberegler, wirken sofort |
-| Ersatzmodus, Ersatzfarbe links/rechts, Helligkeitsmodus, Beim Einschalten, Bei Pause, Standardlicht links/rechts, Pausenlicht Farbe, Bei TV-Standby, Beim Stoppen | Auswahl (Konfiguration) | Wie in der App |
+| Ersatzlicht links/rechts, Standardlicht links/rechts, Pausenlicht | Licht (Konfiguration) | **Farbrad und Helligkeit** für die festen Lichtfarben. Wirkt sofort, auch während der jeweilige Modus aktiv ist. Bleibt immer „an“, weil es eine Einstellung und keine Lampe ist. |
+| Helligkeit maximal/minimal, Updates pro Sekunde, Glättung, Sättigung | Zahlen (Konfiguration) | Schieberegler, wirken sofort |
+| Ersatzmodus, Helligkeitsmodus, Beim Einschalten, Bei Pause, Bei TV-Standby, Beim Stoppen | Auswahl (Konfiguration) | Wie in der App |
 | Szenenwechsel sofort, App-Erkennung | Schalter (Konfiguration) | Wie in der App |
 
-Ist der TV aus oder die App beendet, werden alle Entitäten als „nicht verfügbar“ angezeigt.
+Ist der TV aus oder die App beendet, werden alle Entitäten als „nicht verfügbar“ angezeigt. Tipp: Die Live-Farben ändern sich laufend; wer sie nicht in der Historie braucht, schließt `sensor.tv_ambilight_farbe_links`/`_rechts` im `recorder` aus.
 
-Beispiele (Entitäts-IDs an deine Installation anpassen):
+### Ambilight aus Home Assistant starten und beenden
+
+- **Beenden:** Button „Ambilight beenden“.
+- **Starten:** Läuft das Ambilight nicht, ist es auch nicht per MQTT erreichbar. Gestartet wird es deshalb über die in Home Assistant eingebaute Integration **Android TV Remote** (ohne ADB, Kopplung per PIN am TV). Sie öffnet den Link `tvambilight://start` am TV:
 
 ```yaml
-# Abends Ambilight dimmen
-- alias: Ambilight abends gedimmt
-  triggers:
-    - trigger: time
-      at: "21:30:00"
-  actions:
-    - action: number.set_value
-      target:
-        entity_id: number.tv_ambilight_helligkeit_maximal
-      data:
-        value: 120
+script:
+  ambilight_starten:
+    alias: Ambilight starten
+    sequence:
+      - action: remote.turn_on
+        target:
+          entity_id: remote.wohnzimmer_tv
+        data:
+          activity: tvambilight://start
+```
 
-# Deckenlicht etwas heller, wenn der Film pausiert
-- alias: Deckenlicht bei Pause
-  triggers:
-    - trigger: state
-      entity_id: sensor.tv_ambilight_wiedergabe
-      to: "Pausiert"
-      for: "00:00:02"
-  actions:
-    - action: light.turn_on
-      target:
-        entity_id: light.wohnzimmer_decke
-      data:
-        brightness_pct: 40
+`tvambilight://stop` beendet es entsprechend. Ohne die Freigabe „Ohne Freigabe-Dialog starten“ erscheint am TV der Dialog „Jetzt starten“. Alternativ über die Integration „Android Debug Bridge“: `androidtv.adb_command` mit `am start -a android.intent.action.VIEW -d tvambilight://start`.
 
-# Deckenlicht dimmen, sobald Netflix & Co laufen
-- alias: Deckenlicht dimmen bei Streaming
-  triggers:
-    - trigger: state
-      entity_id: sensor.tv_ambilight_ambilight_modus
-      to: "Ersatzmodus (App-Profil)"
-  actions:
-    - action: light.turn_on
-      target:
-        entity_id: light.wohnzimmer_decke
-      data:
-        brightness_pct: 10
+### Blueprints
+
+Fertige Automationen, mit einem Klick in Home Assistant importierbar:
+
+| Blueprint | Was er tut | Import |
+|---|---|---|
+| **Mit dem Fernseher starten** | Startet das Ambilight, sobald der TV eingeschaltet wird und es nicht schon läuft, z. B. nach einem Neustart. Braucht die Android-TV-Remote-Integration. | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Ftv_ambilight%2Fmit_tv_starten.yaml) |
+| **Raumlicht folgt der Wiedergabe** | Dimmt das Raumlicht beim Abspielen und macht es bei Pause heller (Helligkeiten, Verzögerung, Übergang einstellbar). | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Ftv_ambilight%2Fraumlicht_folgt_wiedergabe.yaml) |
+| **Abends dimmen** | Begrenzt die maximale Ambilight-Helligkeit abends und hebt sie morgens wieder an. Greift auch, wenn das Ambilight erst abends gestartet wird. | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Ftv_ambilight%2Fabends_dimmen.yaml) |
+
+Die Dateien liegen unter [`blueprints/automation/tv_ambilight/`](blueprints/automation/tv_ambilight/).
+
+### Dashboard-Beispiel
+
+```yaml
+type: vertical-stack
+cards:
+  - type: tile
+    entity: sensor.tv_ambilight_ambilight_modus
+  - type: horizontal-stack
+    cards:
+      - type: tile
+        entity: sensor.tv_ambilight_farbe_links
+      - type: tile
+        entity: sensor.tv_ambilight_farbe_rechts
+  - type: tile
+    entity: switch.tv_ambilight_ambilight
+  - type: tile
+    entity: light.tv_ambilight_pausenlicht
+  - type: tile
+    entity: button.tv_ambilight_ambilight_beenden
 ```
 
 ## Installation
@@ -226,34 +245,34 @@ Android fragt dabei einmalig, ob die App, mit der du installierst, „unbekannte
 adb install -r TV-Ambilight.apk
 ```
 
-### Optionale ADB-Freigaben
+### Brauche ich ADB?
 
-Ohne ADB funktioniert das Ambilight, du bestätigst dann bei jedem Start den Freigabe-Dialog von Android. Für folgende Extras brauchst du einmalig ADB (vom PC oder per ADB-App vom Handy, Anleitung in [DOKU.md](./DOKU.md#installation-auf-dem-tv)):
+Nein. Sideloaden reicht, und das Ambilight läuft. ADB (oder die passende TV-Einstellung) braucht es nur für Komfortfunktionen:
 
-- **Pausenlicht und Standardlicht bis zur Wiedergabe** (Wiedergabe/Pause erkennen):
-  ```bash
-  adb shell cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService
-  ```
-- **App-Profile** (Netflix & Co sofort erkennen):
-  ```bash
-  adb shell appops set io.github.hxcde.ambilight GET_USAGE_STATS allow
-  ```
-- Dein TCL zeigt den Freigabe-Dialog **gar nicht** an, oder du willst ohne Dialog starten:
-  ```bash
-  adb shell appops set io.github.hxcde.ambilight PROJECT_MEDIA allow
-  ```
-- **Autostart** nach dem Einschalten:
-  ```bash
-  adb shell appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow
-  ```
+| Funktion | Ohne ADB | Freigabe |
+|---|---|---|
+| Ambilight, Ersatzmodus bei Schwarzbild, Home Assistant, Statistik, Licht aus bei Standby | ✅ Bei jedem Start „Jetzt starten“ bestätigen | – |
+| Ohne Bestätigung starten; Start aus Home Assistant ohne Dialog | ❌ | `PROJECT_MEDIA` (nur per ADB) |
+| Pausenlicht, Standardlicht bis zur Wiedergabe | ❌ | Pause-Erkennung (Benachrichtigungszugriff) |
+| App-Profile (Netflix sofort Ersatzfarben) | ❌ (nach 2 s Schwarzbild trotzdem Ersatzmodus) | App-Erkennung (Nutzungsdatenzugriff) |
+| Autostart nach Neustart | ❌ (alternativ: Blueprint „Mit dem Fernseher starten“) | Über anderen Apps einblenden |
 
-Ob alles freigegeben ist, siehst du in den Einstellungen (**App-Profile → Berechtigung Nutzungsdaten**, **Wiedergabe und Pause → Pause-Erkennung**) und auf der Startseite in den Zeilen **App:** und **Wiedergabe:**.
+Manche TCL-Firmwares zeigen den Freigabe-Dialog gar nicht an; dann ist `PROJECT_MEDIA` per ADB Pflicht. Drei der vier Freigaben bieten manche TVs auch direkt in den Einstellungen an (Apps → Spezieller App-Zugriff). Die Seite **Einrichtung** in der App zeigt, was fehlt, und öffnet die passende TV-Einstellung, sofern vorhanden.
 
-Empfohlen für den vollen Komfort (TV an/aus, Pause, Netflix): alle vier Befehle einmal ausführen und in der App **Autostart** einschalten.
+Alle Freigaben auf einmal per ADB (PC im selben Netz, vorher am TV Netzwerk-Debugging aktivieren, siehe [DOKU.md](./DOKU.md#installation-auf-dem-tv)):
+
+```bash
+adb connect <TV-IP>:5555
+```
+```bash
+adb shell "appops set io.github.hxcde.ambilight PROJECT_MEDIA allow; cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService; appops set io.github.hxcde.ambilight GET_USAGE_STATS allow; appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow"
+```
+
+Danach in der App **Autostart** einschalten. Ohne PC geht das auch mit einer ADB-App auf dem Handy (z. B. „Bugjaeger“).
 
 ## Einrichtung
 
-1. App öffnen → **Einstellungen**.
+1. App öffnen → **Einstellungen** (optional vorher **Einrichtung** ansehen).
 2. **Broker-Adresse:** IP des Rechners bzw. Containers, auf dem der MQTT-Broker läuft (z. B. im Zigbee2MQTT-Container). Port meist `1883`.
 3. **Benutzer/Passwort:** am besten einen eigenen MQTT-Benutzer anlegen, z. B. `ambilight`.
 4. **Base-Topic:** wie in Z2M (Standard `zigbee2mqtt`). **Lampe links/rechts:** Friendly Names aus der Z2M-Geräteliste.
@@ -267,7 +286,7 @@ Empfohlen für den vollen Komfort (TV an/aus, Pause, Netflix): alle vier Befehle
 - **DRM-Apps** (Netflix, Prime Video, Disney+, teils YouTube) liefern nur Schwarz, dafür gibt es Ersatzmodus und App-Profile.
 - **HDMI-Eingänge** des TVs laufen am Android-System vorbei und können nicht ausgelesen werden.
 - **Zigbee ist kein Streaming-Protokoll.** Etwa 4–6 Updates pro Sekunde und Lampe sind realistisch (mit Helligkeit „Fest“ etwas mehr); das reicht für flüssiges Stimmungslicht, aber nicht für Blitzeffekte. Das schnellere Hue-Entertainment-Streaming gibt es nur mit Hue Bridge.
-- Auf einem echten TV ist die Version 0.3.0 noch nicht getestet. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
+- Auf einem echten TV ist die Version 0.4.0 noch nicht getestet; ebenso der Start per Android-TV-Remote-Integration (`tvambilight://start`) und die Blueprints. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
 
 ## Entwicklung
 

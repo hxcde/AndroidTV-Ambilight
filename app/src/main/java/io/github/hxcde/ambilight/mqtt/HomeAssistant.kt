@@ -2,8 +2,9 @@ package io.github.hxcde.ambilight.mqtt
 
 /**
  * Topics und MQTT-Discovery-Payloads für Home Assistant:
- * Schalter (Ambilight an/pausiert), Sensoren (Modus, aktive App, Wiedergabe, Verzögerung, Zigbee-Last)
- * und alle Einstellungen aus [HaEntities] als steuerbare Entitäten.
+ * Schalter (Ambilight an/pausiert), Button (beenden), Sensoren (Modus, aktive App, Wiedergabe,
+ * Live-Farben, Verzögerung, Zigbee-Last) und alle Einstellungen aus [HaEntities] als steuerbare Entitäten
+ * (Ersatz-, Standard- und Pausenlicht als Licht mit Farbrad).
  */
 class HomeAssistant(private val appTopic: String, private val prefix: String, private val clientId: String, private val version: String) {
     val statusTopic = "$appTopic/status"
@@ -14,6 +15,10 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
     val playbackTopic = "$appTopic/playback"
     val statsTopic = "$appTopic/stats"
     val configSetFilter = "$appTopic/config/+/set"
+    /** Befehle an die App, z. B. `STOP`. */
+    val commandTopic = "$appTopic/command"
+    /** Aktuelle Lampenfarben (JSON, gedrosselt). */
+    val liveTopic = "$appTopic/live"
     val birthTopic = "$prefix/status"
 
     private val nodeId = appTopic.replace(Regex("[^A-Za-z0-9_-]"), "_")
@@ -24,6 +29,13 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
     private val playbackConfigTopic = "$prefix/sensor/$nodeId/playback/config"
     private val latencyConfigTopic = "$prefix/sensor/$nodeId/latency/config"
     private val zigbeeConfigTopic = "$prefix/sensor/$nodeId/zigbee_rate/config"
+    private val stopButtonConfigTopic = "$prefix/button/$nodeId/stop/config"
+    private val liveLeftConfigTopic = "$prefix/sensor/$nodeId/live_left/config"
+    private val liveRightConfigTopic = "$prefix/sensor/$nodeId/live_right/config"
+
+    /** Discovery-Topics von Entitäten älterer Versionen (zum Entfernen). */
+    fun legacyConfigTopics(): List<String> =
+        HaEntities.LEGACY.map { "$prefix/${it.substringBefore('/')}/$nodeId/${it.substringAfter('/')}/config" }
 
     fun configStateTopic(id: String) = "$appTopic/config/$id"
     fun configSetTopic(id: String) = "$appTopic/config/$id/set"
@@ -54,6 +66,15 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
     private fun playbackSensorConfig(): String = """{"name":"Wiedergabe","unique_id":${q(clientId + "_playback")},""" +
         """"state_topic":${q(playbackTopic)},$availability,"icon":"mdi:play-pause","device":$device}"""
 
+    private fun stopButtonConfig(): String = """{"name":"Ambilight beenden","unique_id":${q(clientId + "_stop")},""" +
+        """"command_topic":${q(commandTopic)},"payload_press":"STOP",$availability,"icon":"mdi:stop-circle","device":$device}"""
+
+    private fun liveSensorConfig(side: String, name: String): String =
+        """{"name":${q(name)},"unique_id":${q(clientId + "_live_" + side)},"state_topic":${q(liveTopic)},""" +
+            """"value_template":${q("{{ value_json.$side }}")},"json_attributes_topic":${q(liveTopic)},""" +
+            """"json_attributes_template":${q("{{ {'rgb_color': value_json.${side}_rgb} | tojson }}")},""" +
+            """$availability,"icon":"mdi:palette","device":$device}"""
+
     private fun statsSensorConfig(id: String, name: String, field: String, unit: String, icon: String): String =
         """{"name":${q(name)},"unique_id":${q(clientId + "_" + id)},"state_topic":${q(statsTopic)},""" +
             """"value_template":${q("{{ value_json.$field }}")},"unit_of_measurement":${q(unit)},""" +
@@ -68,6 +89,7 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
                 (e.unit?.let { ""","unit_of_measurement":${q(it)}""" } ?: "")
             is HaSelect -> """"options":[${e.options.joinToString(",") { q(it.label) }}]"""
             is HaSwitch -> """"payload_on":"ON","payload_off":"OFF""""
+            is HaLight -> """"schema":"json","supported_color_modes":["rgb"],"brightness_scale":254"""
         }
         return "{$common,$specific}"
     }
@@ -80,6 +102,9 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
         add(playbackConfigTopic to playbackSensorConfig())
         add(latencyConfigTopic to statsSensorConfig("latency", "Verzögerung", "latency_ms", "ms", "mdi:timer-outline"))
         add(zigbeeConfigTopic to statsSensorConfig("zigbee_rate", "Zigbee-Befehle", "zigbee_per_s", "1/s", "mdi:zigbee"))
+        add(stopButtonConfigTopic to stopButtonConfig())
+        add(liveLeftConfigTopic to liveSensorConfig("left", "Farbe links"))
+        add(liveRightConfigTopic to liveSensorConfig("right", "Farbe rechts"))
         HaEntities.ALL.forEach { add(entityConfigTopic(it) to entityConfig(it)) }
     }
 

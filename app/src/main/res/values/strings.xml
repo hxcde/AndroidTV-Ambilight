@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">TV Ambilight</string>
     <string name="notification_channel">Ambilight-Dienst</string>
 
@@ -7,6 +7,8 @@
     <string name="action_stop">Ambilight stoppen</string>
     <string name="action_settings">Einstellungen</string>
     <string name="action_test">Verbindung testen</string>
+    <string name="action_setup">Einrichtung</string>
+    <string name="action_setup_missing" tools:ignore="PluralsCandidate">Einrichtung (%1$d offen)</string>
 
     <string name="status_mode">Status: %1$s</string>
     <string name="status_mqtt">MQTT: %1$s</string>
@@ -35,7 +37,32 @@
     <string name="test_failed">Fehler: %1$s</string>
 
     <string name="hint_drm">Netflix, Prime Video und andere DRM-geschützte Apps liefern nur ein schwarzes Bild. Dann greift der Ersatzmodus aus den Einstellungen.</string>
-    <string name="hint_adb">Kein Freigabe-Dialog oder Autostart gewünscht? ADB-Befehle siehe README.</string>
+    <string name="hint_adb">Ohne Dialog starten, Autostart, Pause- und App-Erkennung: siehe „Einrichtung“.</string>
+
+    <!-- Einrichtung -->
+    <string name="setup_title">Einrichtung</string>
+    <string name="setup_intro">Das Ambilight läuft auch ohne diese Freigaben. Sie schalten Komfortfunktionen frei. Erteilen geht, sofern der TV es anbietet, über die TV-Einstellungen, sonst einmalig per ADB vom PC oder einer ADB-App am Handy.</string>
+    <string name="setup_all_granted">Alle Freigaben erteilt.</string>
+    <plurals name="setup_missing">
+        <item quantity="one">%1$d Freigabe fehlt</item>
+        <item quantity="other">%1$d Freigaben fehlen</item>
+    </plurals>
+    <string name="setup_all_title">Alle Freigaben mit einem Befehl</string>
+    <string name="setup_all_hint">Am PC im selben Netz: zuerst „adb connect &lt;TV-IP&gt;:5555“, dann diesen Befehl. Anschließend in den Einstellungen „Autostart“ einschalten.</string>
+    <string name="setup_back">Zurück</string>
+    <string name="perm_granted">✓ Erteilt</string>
+    <string name="perm_missing">Fehlt</string>
+    <string name="perm_open">TV-Einstellung öffnen</string>
+    <string name="perm_adb">ADB: adb shell %1$s</string>
+    <string name="perm_settings_missing">Diese Einstellung gibt es am TV nicht, bitte per ADB freigeben.</string>
+    <string name="perm_capture_title">Ohne Freigabe-Dialog starten</string>
+    <string name="perm_capture_desc">Bildschirmaufnahme ohne „Jetzt starten“-Bestätigung. Nötig, wenn der Dialog bei TCL gar nicht erscheint, für Autostart und für den Start aus Home Assistant.</string>
+    <string name="perm_media_title">Pause-Erkennung</string>
+    <string name="perm_media_desc">Erkennt Wiedergabe und Pause (auch Netflix &amp; Co): Pausenlicht und Standardlicht bis zur Wiedergabe. Benachrichtigungen werden nicht gelesen.</string>
+    <string name="perm_usage_title">App-Erkennung</string>
+    <string name="perm_usage_desc">Erkennt die App im Vordergrund: App-Profile, z. B. Netflix sofort Ersatzfarben.</string>
+    <string name="perm_overlay_title">Autostart</string>
+    <string name="perm_overlay_desc">Erlaubt, die Bildschirmaufnahme nach Neustart oder Standby selbst neu zu starten. Zusätzlich in den Einstellungen „Autostart“ einschalten.</string>
 
     <string name="capture_denied">Bildschirmfreigabe abgelehnt.</string>
     <string name="capture_unavailable">Dieses Gerät bietet keine Bildschirmfreigabe an. Siehe README (ADB-Freigabe).</string>

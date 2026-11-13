@@ -54,19 +54,48 @@ class HaEntitiesTest {
 
     @Test
     fun selectMapsLabelsToValues() {
-        val s = HaEntities.byId("black_color_left") as HaSelect
-        assertEquals("#8000FF", s.parse("Lila"))
-        assertEquals("Lila", s.label("#8000FF"))
+        val s = HaEntities.byId("black_mode") as HaSelect
+        assertEquals("OFF", s.parse("Licht aus"))
+        assertEquals("Letzte Farbe halten", s.label("HOLD"))
         assertEquals(null, s.parse("Gibt es nicht"))
     }
 
     @Test
     fun discoveryContainsAllEntities() {
         val d = ha.discovery()
-        assertEquals(6 + HaEntities.ALL.size, d.size)
+        assertEquals(9 + HaEntities.ALL.size, d.size)
         val select = d.first { it.first == "homeassistant/select/tv-ambilight/black_mode/config" }.second
         assertTrue(select, select.contains("\"options\":[\"Feste Farbe (pro Lampe)\""))
         val number = d.first { it.first == "homeassistant/number/tv-ambilight/smoothing/config" }.second
         assertTrue(number, number.contains("\"unit_of_measurement\":\"%\""))
+        val light = d.first { it.first == "homeassistant/light/tv-ambilight/pause_light/config" }.second
+        assertTrue(light, light.contains("\"schema\":\"json\"") && light.contains("\"supported_color_modes\":[\"rgb\"]"))
+        val button = d.first { it.first == "homeassistant/button/tv-ambilight/stop/config" }.second
+        assertTrue(button, button.contains("\"payload_press\":\"STOP\""))
+    }
+
+    @Test
+    fun lightCommandAndState() {
+        assertEquals(HaLight.Command("#8000FF", 120), HaLight.parse("""{"state":"ON","color":{"r":128,"g":0,"b":255},"brightness":120}"""))
+        assertEquals(HaLight.Command(null, 254), HaLight.parse("""{"state":"ON","brightness":300}"""))
+        assertEquals(HaLight.Command(null, null), HaLight.parse("""{"state":"ON","color":{"r":0,"g":0,"b":0}}"""))
+        assertEquals(null, HaLight.parse("kaputt"))
+        val l = HaEntities.byId("standard_light_left") as HaLight
+        assertEquals(
+            """{"state":"ON","color_mode":"rgb","brightness":150,"color":{"r":128,"g":0,"b":255}}""",
+            l.state(io.github.hxcde.ambilight.light.FixedColor.parse("#8000FF")!!, 150),
+        )
+    }
+
+    @Test
+    fun brightnessKeyAffectsBothLights() {
+        val ids = HaEntities.affectedBy("standard_brightness").map { it.id }
+        assertEquals(listOf("standard_light_left", "standard_light_right"), ids)
+        assertEquals(listOf("black_light_left"), HaEntities.affectedBy("black_color_left_custom").map { it.id })
+    }
+
+    @Test
+    fun legacyTopicsAreRemoved() {
+        assertTrue(ha.legacyConfigTopics().contains("homeassistant/select/tv-ambilight/black_color_left/config"))
     }
 }

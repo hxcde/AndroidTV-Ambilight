@@ -1,0 +1,73 @@
+blueprint:
+  name: TV Ambilight – abends dimmen
+  description: >-
+    Begrenzt die maximale Ambilight-Helligkeit am Abend und hebt sie morgens wieder an.
+    Wird auch angewendet, sobald das Ambilight startet (z. B. wenn der TV abends eingeschaltet wird).
+  domain: automation
+  source_url: https://github.com/hxcde/AndroidTV-Ambilight/blob/HEAD/blueprints/automation/tv_ambilight/abends_dimmen.yaml
+  input:
+    max_brightness:
+      name: Helligkeit maximal
+      description: Entität „Helligkeit maximal“ des Geräts „TV Ambilight“.
+      selector:
+        entity:
+          filter:
+            - domain: number
+    evening_time:
+      name: Abends ab
+      default: "21:30:00"
+      selector:
+        time: {}
+    evening_value:
+      name: Helligkeit abends
+      default: 120
+      selector:
+        number:
+          min: 1
+          max: 254
+    morning_time:
+      name: Tagsüber ab
+      default: "06:00:00"
+      selector:
+        time: {}
+    day_value:
+      name: Helligkeit tagsüber
+      default: 254
+      selector:
+        number:
+          min: 1
+          max: 254
+
+mode: queued
+
+variables:
+  evening_time: !input evening_time
+  morning_time: !input morning_time
+  evening_value: !input evening_value
+  day_value: !input day_value
+
+triggers:
+  - trigger: time
+    at: !input evening_time
+  - trigger: time
+    at: !input morning_time
+  # Ambilight wurde gestartet: Wert passend zur Uhrzeit setzen
+  - trigger: state
+    entity_id: !input max_brightness
+    from: unavailable
+
+actions:
+  - variables:
+      now_t: "{{ now().strftime('%H:%M:%S') }}"
+      is_evening: >-
+        {% if evening_time > morning_time %}
+          {{ now_t >= evening_time or now_t < morning_time }}
+        {% else %}
+          {{ evening_time <= now_t < morning_time }}
+        {% endif %}
+  - action: number.set_value
+    continue_on_error: true
+    target:
+      entity_id: !input max_brightness
+    data:
+      value: "{{ evening_value if is_evening else day_value }}"

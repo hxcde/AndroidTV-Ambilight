@@ -1,0 +1,56 @@
+blueprint:
+  name: TV Ambilight – mit dem Fernseher starten
+  description: >-
+    Startet das Ambilight automatisch, sobald der Fernseher eingeschaltet wird
+    und das Ambilight nicht schon läuft (z. B. nach einem Neustart des TV).
+    Benötigt die Home-Assistant-Integration „Android TV Remote“.
+    Ohne die Freigabe „Ohne Freigabe-Dialog starten“ (PROJECT_MEDIA) muss am TV
+    einmal „Jetzt starten“ bestätigt werden.
+  domain: automation
+  source_url: https://github.com/hxcde/AndroidTV-Ambilight/blob/HEAD/blueprints/automation/tv_ambilight/mit_tv_starten.yaml
+  input:
+    tv_remote:
+      name: Fernseher
+      description: Remote-Entität der Integration „Android TV Remote“ (z. B. remote.wohnzimmer_tv).
+      selector:
+        entity:
+          filter:
+            - domain: remote
+    ambilight_mode:
+      name: Ambilight-Modus
+      description: Sensor „Ambilight Modus“ des Geräts „TV Ambilight“.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+    start_delay:
+      name: Wartezeit
+      description: So lange nach dem Einschalten warten, bis der TV bereit ist.
+      default: 8
+      selector:
+        number:
+          min: 0
+          max: 60
+          unit_of_measurement: s
+
+mode: single
+
+triggers:
+  - trigger: state
+    entity_id: !input tv_remote
+    to: "on"
+
+actions:
+  - delay:
+      seconds: !input start_delay
+  - condition: state
+    entity_id: !input ambilight_mode
+    state:
+      - unavailable
+      - unknown
+      - Gestoppt
+  - action: remote.turn_on
+    target:
+      entity_id: !input tv_remote
+    data:
+      activity: tvambilight://start

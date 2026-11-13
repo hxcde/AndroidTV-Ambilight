@@ -65,18 +65,38 @@ Nach jedem Befehl veröffentlicht Z2M den neuen Zustand auf `<base>/<friendly_na
 | `<app_topic>/app` | App → HA | Name der App im Vordergrund (retained) |
 | `<app_topic>/playback` | App → HA | `Spielt`, `Pausiert`, `–` (retained) |
 | `<app_topic>/stats` | App → HA | alle 10 s: `{"latency_ms":84,"latency_max_ms":152,"zigbee_per_s":8.9,"messages_per_s":6.4,"fps":15.0,"dropped":0}` |
-| `<app_topic>/config/<id>` | App → HA | aktueller Wert einer Einstellung (retained) |
-| `<app_topic>/config/<id>/set` | HA → App | neuer Wert; Zahlen werden gerundet und begrenzt, Auswahlen per Anzeigetext |
-| `<ha_prefix>/<switch\|sensor\|number\|select>/<node>/<id>/config` | App → HA | Discovery (retained). Ist Discovery aus, werden die Configs mit leerem Payload entfernt. |
+| `<app_topic>/config/<id>` | App → HA | aktueller Wert einer Einstellung (retained); bei Lichtern JSON, z. B. `{"state":"ON","color_mode":"rgb","brightness":150,"color":{"r":255,"g":195,"b":122}}` |
+| `<app_topic>/config/<id>/set` | HA → App | neuer Wert; Zahlen werden gerundet und begrenzt, Auswahlen per Anzeigetext, Lichter als JSON mit `color` (r/g/b) und/oder `brightness` |
+| `<app_topic>/command` | HA → App | `STOP` beendet das Ambilight (Button „Ambilight beenden“) |
+| `<app_topic>/live` | App → HA | höchstens alle 2 s bei Änderung: `{"left":"#E0702A","right":"#2A8FE0","left_rgb":[224,112,42],"right_rgb":[42,143,224]}` |
+| `<ha_prefix>/<switch\|sensor\|number\|select\|light\|button>/<node>/<id>/config` | App → HA | Discovery (retained). Ist Discovery aus, werden die Configs mit leerem Payload entfernt. Configs älterer Versionen (z. B. `select/black_color_left`) werden immer entfernt. |
 
-IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_brightness`, `black_mode`, `black_color_left`, `black_color_right`, `brightness_mode`, `standby_action`, `wake_action`, `pause_action`, `standard_color_left`, `standard_color_right`, `standard_brightness`, `pause_color`, `pause_brightness`, `stop_action`, `scene_cut`, `app_detection`.
+IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_mode`, `brightness_mode`, `standby_action`, `wake_action`, `pause_action`, `stop_action`, `scene_cut`, `app_detection` sowie die Lichter `black_light_left`, `black_light_right`, `standard_light_left`, `standard_light_right`, `pause_light`.
 
 Beispiel ohne Home Assistant:
 ```bash
 mosquitto_pub -h <broker> -u <user> -P <pass> -t tv-ambilight/config/brightness_max/set -m 120
 ```
 
+## Start und Stopp von außen
+
+Die App reagiert auf die Links `tvambilight://start` und `tvambilight://stop` (exportierte `RemoteControlActivity`, ohne Oberfläche):
+
+- Home Assistant mit Integration „Android TV Remote“: `remote.turn_on` mit `activity: tvambilight://start`
+- ADB: `adb shell am start -a android.intent.action.VIEW -d tvambilight://start`
+- Alternativ per Action: `adb shell am start -a io.github.hxcde.ambilight.action.START` (bzw. `…STOP`)
+
+Läuft das Ambilight schon, bewirkt `start` nichts. Gestartet wird immer über die normale Bildschirmfreigabe: ohne `PROJECT_MEDIA`-Freigabe erscheint der Dialog am TV. Da jede App bzw. jeder Link diese Adressen aufrufen kann, ist die Funktion bewusst auf Start/Stopp beschränkt.
+
 ## Installation auf dem TV
+
+Kurzfassung: Sideloaden genügt. Welche optionalen Freigaben fehlen, zeigt die Seite **Einrichtung** in der App (mit Knopf zur TV-Einstellung, falls vorhanden, und ADB-Befehl). Alle Freigaben auf einmal:
+
+```bash
+adb shell "appops set io.github.hxcde.ambilight PROJECT_MEDIA allow; cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService; appops set io.github.hxcde.ambilight GET_USAGE_STATS allow; appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow"
+```
+
+Einzeln:
 
 1. Entwickleroptionen am TV aktivieren: Einstellungen → System → Info → 7× auf „Build“ (Pfad je nach TCL-Firmware leicht anders).
 2. In den Entwickleroptionen „USB-Debugging“ bzw. „Netzwerk-Debugging“ / „Kabelloses Debugging“ aktivieren.
@@ -189,6 +209,8 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
 | „Wiedergabe: Pause-Erkennung nicht freigegeben“ | Benachrichtigungs-Listener nicht freigegeben | `cmd notification allow_listener …` per ADB (Installation, Schritt 6) |
 | Kein Pausenlicht, obwohl freigegeben | App meldet keine Mediensitzung oder Pause dauerte < 1 s | Startseite zeigt „Wiedergabe: …“; bleibt sie bei „–“, unterstützt die App das nicht |
 | Nach dem Einschalten bleibt Standardlicht | Keine Wiedergabe erkannt | Wiedergabe starten genügt. Apps ohne Mediensitzung (z. B. Live-TV) beenden das Standardlicht beim Öffnen automatisch, sofern die App-Erkennung freigegeben ist. Sonst „Beim Einschalten“ auf „Sofort Ambilight“ stellen. |
+| Start aus Home Assistant passiert nichts | Android-TV-Remote-Integration öffnet den Link nicht, oder Dialog am TV wartet | Am TV nachsehen, ob „Jetzt starten“ angezeigt wird; `PROJECT_MEDIA` freigeben. Test per ADB: `am start -a android.intent.action.VIEW -d tvambilight://start` |
+| Alte Entitäten (z. B. „Ersatzfarbe links“ als Auswahl) bleiben in HA | Discovery-Config älterer Version | Wird beim Verbinden automatisch entfernt; sonst Entität in HA löschen |
 | App: „Berechtigung fehlt“ | Nutzungsdatenzugriff nicht erteilt | `GET_USAGE_STATS allow` per ADB (Installation, Schritt 5) |
 | Profil greift nicht | App nicht in der Liste oder falsche App erkannt | Startseite zeigt „App: …“; diese App in den App-Profilen ankreuzen |
 | Nach Stopp falsches Licht | Zustand beim Start nicht gelesen (Z2M antwortete nicht binnen 2 s) | Log prüfen (`adb logcat -s Ambilight`); notfalls „Beim Stoppen: Licht aus“ |

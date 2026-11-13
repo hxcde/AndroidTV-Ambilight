@@ -31,6 +31,17 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
+        <!-- Einrichtung: prüfen, ob der TV die Einstellungsseiten anbietet -->
+        <intent>
+            <action android:name="android.settings.USAGE_ACCESS_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.action.MANAGE_OVERLAY_PERMISSION" />
+            <data android:scheme="package" />
+        </intent>
     </queries>
 
     <application
@@ -56,6 +67,31 @@
         <activity
             android:name=".ui.SettingsActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ui.SetupActivity"
+            android:exported="false" />
+
+        <!-- Start/Stopp von außen: tvambilight://start bzw. tvambilight://stop (Home Assistant, ADB) -->
+        <activity
+            android:name=".ui.RemoteControlActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tvambilight" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="io.github.hxcde.ambilight.action.START" />
+                <action android:name="io.github.hxcde.ambilight.action.STOP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".ui.CaptureRequestActivity"

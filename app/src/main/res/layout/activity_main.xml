@@ -77,6 +77,11 @@
             style="@style/TvButton"
             android:text="@string/action_test" />
 
+        <Button
+            android:id="@+id/button_setup"
+            style="@style/TvButton"
+            android:text="@string/action_setup" />
+
         <TextView
             android:id="@+id/text_test_result"
             android:layout_width="match_parent"

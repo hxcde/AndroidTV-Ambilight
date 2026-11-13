@@ -28,7 +28,7 @@ app/src/main/
       MqttPackets.kt             Kodierung der MQTT-Pakete (CONNECT, PUBLISH, SUBSCRIBE, PING …)
       MqttConnection.kt          Socket/TLS, Reconnect mit Backoff, Keepalive, Coalescing-Publish, Verbindungstest
       HomeAssistant.kt           Topics und Discovery-Payloads (Schalter, Sensoren, Einstellungs-Entitäten)
-      HaEntities.kt              Per HA steuerbare Einstellungen (number/select/switch) inkl. Wert-Parsing
+      HaEntities.kt              Per HA steuerbare Einstellungen (number/select/switch/light) inkl. Wert-Parsing
     service/
       AmbilightService.kt        Vordergrunddienst: Aufnahme, MQTT/HA, Live-Einstellungen, App-Erkennung → Engine
       ForegroundAppDetector.kt   Vordergrund-App per UsageStatsManager (Berechtigung GET_USAGE_STATS), Launcher-Liste
@@ -38,11 +38,15 @@ app/src/main/
     ui/
       MainActivity.kt            Startseite: Start/Stopp, Status, Farbvorschau, Verbindungstest
       SettingsActivity.kt        PreferenceFragmentCompat, Optionslisten, App-Auswahl, Farbfelder, Berechtigungsstatus
+      SetupActivity.kt           Einrichtungsseite: Status der optionalen Freigaben, TV-Einstellung, ADB-Befehle
+      Permissions.kt             Prüft PROJECT_MEDIA, Benachrichtigungszugriff, Nutzungsdaten, Overlay
+      RemoteControlActivity.kt   Exportiert, ohne UI: tvambilight://start|stop für Home Assistant/ADB
       CaptureRequestActivity.kt  Unsichtbar: fragt Bildschirmfreigabe an und startet den Dienst
       BootReceiver.kt            Autostart nach BOOT_COMPLETED
   res/xml/preferences.xml        Alle Einstellungen (Schlüssel = AppSettings.K_*)
 app/src/test/                    JVM-Unit-Tests (u. a. engine/AmbilightEngineTest), MQTT-Integrationstest (MQTT_IT_PORT), Robolectric/Roborazzi-Screenshots
 docs/screenshots/                Erzeugte Screenshots (TV-Auflösung 1920×1080)
+blueprints/automation/tv_ambilight/  Home-Assistant-Blueprints (mit TV starten, Raumlicht folgt Wiedergabe, abends dimmen)
 .github/workflows/build.yml      CI: Tests, APK-Build, Upload als Artefakt
 .github/workflows/release.yml    Release bei Tag v* oder manuell: APK als Release-Asset TV-Ambilight.apk
 ```
@@ -77,7 +81,7 @@ HA "<app>/config/<id>/set" → SharedPreferences → Listener (wie oben)
 
 Ersatzmodus: Ist das Bild ≥ 2 s komplett schwarz (DRM) oder läuft eine App mit Profil „Sofort Ersatzmodus“, wird je nach `black_mode` eine feste Farbe pro Lampe gesendet, die letzte Farbe gehalten oder das Licht ausgeschaltet.
 
-Home Assistant: Der Dienst abonniert `<app_topic>/set` (Pause), `<app_topic>/config/+/set` (Einstellungen), `<ha_prefix>/status` (Birth-Message) und die Statusmeldungen beider Lampen; er veröffentlicht `status` (LWT `offline`), `state`, `mode`, `app`, `stats`, alle `config/<id>`-Werte und die Discovery-Configs.
+Home Assistant: Der Dienst abonniert `<app_topic>/set` (Pause), `<app_topic>/config/+/set` (Einstellungen inkl. Licht-Entitäten), `<app_topic>/command` (`STOP`), `<ha_prefix>/status` (Birth-Message) und die Statusmeldungen beider Lampen; er veröffentlicht `status` (LWT `offline`), `state`, `mode`, `app`, `playback`, `live` (alle 2 s bei Änderung), `stats`, alle `config/<id>`-Werte und die Discovery-Configs. Gestartet wird von außen über `RemoteControlActivity` (`tvambilight://start`), weil ein gestoppter Dienst per MQTT nicht erreichbar ist.
 
 ## Wichtige Einstiegspunkte
 

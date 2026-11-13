@@ -127,6 +127,14 @@ class ScreenshotTest {
     }
 
     @Test
+    fun einrichtung() {
+        ActivityScenario.launch(SetupActivity::class.java).use {
+            idle()
+            onView(isRoot()).captureRoboImage("$dir/16_einrichtung.png")
+        }
+    }
+
+    @Test
     fun verbindungstest() = main("09_verbindungstest.png", focusId = R.id.button_test) {
         it.findViewById<android.widget.TextView>(R.id.text_test_result).setText(R.string.test_ok)
     }
