@@ -20,6 +20,7 @@ import io.github.hxcde.ambilight.Options
 import io.github.hxcde.ambilight.R
 import io.github.hxcde.ambilight.engine.AppProfiles
 import io.github.hxcde.ambilight.service.ForegroundAppDetector
+import io.github.hxcde.ambilight.service.MediaWatcher
 import io.github.hxcde.ambilight.light.FixedColor
 
 class SettingsActivity : AppCompatActivity() {
@@ -52,9 +53,18 @@ class SettingsActivity : AppCompatActivity() {
             options(AppSettings.K_BRIGHTNESS_MODE, Options.BRIGHTNESS_MODE)
             options(AppSettings.K_STANDBY_ACTION, Options.LIGHT_ACTION)
             options(AppSettings.K_STOP_ACTION, Options.LIGHT_ACTION)
+            options(AppSettings.K_WAKE_ACTION, Options.WAKE_ACTION)
+            options(AppSettings.K_PAUSE_ACTION, Options.PAUSE_ACTION)
+            sceneColor(AppSettings.K_STANDARD_COLOR_LEFT)
+            sceneColor(AppSettings.K_STANDARD_COLOR_RIGHT)
+            sceneColor(AppSettings.K_PAUSE_COLOR)
+            findPreference<Preference>(AppSettings.K_MEDIA_PERMISSION)?.setOnPreferenceClickListener {
+                openSettings(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS, R.string.media_permission_settings_missing)
+                true
+            }
             appLists()
             findPreference<Preference>(AppSettings.K_APP_PERMISSION)?.setOnPreferenceClickListener {
-                openUsageAccessSettings()
+                openSettings(Settings.ACTION_USAGE_ACCESS_SETTINGS, R.string.app_permission_settings_missing)
                 true
             }
 
@@ -86,13 +96,29 @@ class SettingsActivity : AppCompatActivity() {
             findPreference<Preference>(AppSettings.K_APP_PERMISSION)?.setSummary(
                 if (ForegroundAppDetector.hasPermission(requireContext())) R.string.app_permission_ok else R.string.app_permission_missing,
             )
+            findPreference<Preference>(AppSettings.K_MEDIA_PERMISSION)?.setSummary(
+                if (MediaWatcher.hasPermission(requireContext())) R.string.media_permission_ok else R.string.media_permission_missing,
+            )
         }
 
-        private fun openUsageAccessSettings() {
+        private fun openSettings(action: String, missingText: Int) {
             try {
-                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                startActivity(Intent(action))
             } catch (_: ActivityNotFoundException) {
-                Toast.makeText(requireContext(), R.string.app_permission_settings_missing, Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), missingText, Toast.LENGTH_LONG).show()
+            }
+        }
+
+        /** Farbauswahl für Standard-/Pausenlicht mit Farbfeld als Icon. */
+        private fun sceneColor(key: String) {
+            val list = findPreference<ListPreference>(key) ?: return
+            list.entries = Options.SCENE_COLOR.map { it.label }.toTypedArray()
+            list.entryValues = Options.SCENE_COLOR.map { it.value }.toTypedArray()
+            val update = { v: String? -> list.icon = swatch((FixedColor.parse(v) ?: FixedColor.DEFAULT).previewArgb) }
+            update(list.value)
+            list.setOnPreferenceChangeListener { _, newValue ->
+                update(newValue as String)
+                true
             }
         }
 
@@ -117,7 +143,7 @@ class SettingsActivity : AppCompatActivity() {
             }
             val sorted = apps.entries.sortedBy { it.value.lowercase() }
             val prefs = preferenceManager.sharedPreferences
-            for (key in listOf(AppSettings.K_APPS_FALLBACK, AppSettings.K_APPS_RESTORE, AppSettings.K_APPS_OFF)) {
+            for (key in listOf(AppSettings.K_APPS_FALLBACK, AppSettings.K_APPS_STANDARD, AppSettings.K_APPS_OFF)) {
                 val pref = findPreference<MultiSelectListPreference>(key) ?: continue
                 pref.entries = sorted.map { it.value }.toTypedArray()
                 pref.entryValues = sorted.map { it.key }.toTypedArray()

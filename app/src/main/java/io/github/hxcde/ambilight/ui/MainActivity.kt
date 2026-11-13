@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mqttText: TextView
     private lateinit var testResult: TextView
     private lateinit var appText: TextView
+    private lateinit var playbackText: TextView
     private lateinit var statsBox: android.view.View
     private lateinit var statsText: TextView
     private lateinit var swatchLeft: android.view.View
@@ -43,6 +44,7 @@ class MainActivity : AppCompatActivity() {
         mqttText = findViewById(R.id.text_mqtt)
         testResult = findViewById(R.id.text_test_result)
         appText = findViewById(R.id.text_app)
+        playbackText = findViewById(R.id.text_playback)
         statsBox = findViewById(R.id.stats_box)
         statsText = findViewById(R.id.text_stats)
         swatchLeft = findViewById(R.id.swatch_left)
@@ -85,6 +87,8 @@ class MainActivity : AppCompatActivity() {
         } else {
             getString(R.string.status_app, s.activeApp ?: getString(R.string.app_unknown))
         }
+        playbackText.visibility = if (running) android.view.View.VISIBLE else android.view.View.GONE
+        playbackText.text = if (s.mediaDetection) getString(R.string.status_playback, s.playback.label) else getString(R.string.media_no_permission)
         statsBox.visibility = if (running) android.view.View.VISIBLE else android.view.View.GONE
         statsText.text = s.stats?.let { st ->
             val ms = { v: Int? -> v?.let { getString(R.string.ms, it) } ?: "–" }

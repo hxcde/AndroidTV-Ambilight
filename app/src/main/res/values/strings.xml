@@ -20,6 +20,8 @@
     <string name="status_app">App: %1$s</string>
     <string name="app_unknown">unbekannt</string>
     <string name="app_detection_no_permission">App-Erkennung: Berechtigung fehlt (siehe README)</string>
+    <string name="status_playback">Wiedergabe: %1$s</string>
+    <string name="media_no_permission">Wiedergabe: Pause-Erkennung nicht freigegeben (siehe README)</string>
     <string name="stats_title">Statistik</string>
     <string name="stats_rates">Analyse %1$s Bilder/s · MQTT %2$s/s · Zigbee %3$s Befehle/s</string>
     <string name="stats_latency">Verzögerung Ø %1$s · max %2$s · verworfen %3$d</string>
@@ -80,7 +82,7 @@
     <string name="app_permission_missing">Fehlt. Freigeben per ADB: adb shell appops set io.github.hxcde.ambilight GET_USAGE_STATS allow</string>
     <string name="app_permission_settings_missing">Einstellung am TV nicht verfügbar, bitte per ADB freigeben (siehe README).</string>
     <string name="pref_apps_fallback">Sofort Ersatzmodus</string>
-    <string name="pref_apps_restore">Normales Licht (kein Ambilight)</string>
+    <string name="pref_apps_standard">Standardlicht (kein Ambilight)</string>
     <string name="pref_apps_off">Licht aus</string>
     <string name="apps_none">keine</string>
     <string name="apps_not_found">Keine Apps gefunden</string>
@@ -94,14 +96,30 @@
     <string name="pref_black_brightness">Helligkeit im Ersatzmodus</string>
 
     <string name="cat_behavior">Verhalten</string>
+    <string name="pref_wake_action">Beim Einschalten des TV</string>
     <string name="pref_standby_action">Bei TV-Standby</string>
+
+    <string name="cat_standard">Standardlicht</string>
+    <string name="pref_standard_note">Gilt beim Einschalten bis zur Wiedergabe, für Apps mit Profil „Standardlicht“ und wahlweise bei Pause, Standby oder Stopp.</string>
+    <string name="pref_standard_color_left">Farbe links</string>
+    <string name="pref_standard_color_right">Farbe rechts</string>
+    <string name="pref_standard_brightness">Helligkeit</string>
+
+    <string name="cat_pause">Wiedergabe und Pause</string>
+    <string name="pref_media_permission">Pause-Erkennung (Mediensitzungen)</string>
+    <string name="media_permission_ok">Freigegeben</string>
+    <string name="media_permission_missing">Nicht freigegeben. Per ADB: adb shell cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService</string>
+    <string name="media_permission_settings_missing">Einstellung am TV nicht verfügbar, bitte per ADB freigeben (siehe README).</string>
+    <string name="pref_pause_action">Bei Pause</string>
+    <string name="pref_pause_color">Pausenlicht Farbe</string>
+    <string name="pref_pause_brightness">Pausenlicht Helligkeit</string>
     <string name="pref_stop_action">Beim Stoppen</string>
     <string name="pref_autostart">Autostart nach dem Einschalten</string>
     <string name="pref_autostart_summary">Benötigt einmalige ADB-Freigaben, siehe README</string>
 
     <string name="cat_ha">Home Assistant</string>
     <string name="pref_ha_discovery">MQTT-Discovery</string>
-    <string name="pref_ha_discovery_summary">Legt Schalter, Sensoren (Modus, App, Verzögerung) und alle wichtigen Einstellungen als Entitäten an</string>
+    <string name="pref_ha_discovery_summary">Legt Schalter, Sensoren (Modus, App, Wiedergabe, Verzögerung) und alle wichtigen Einstellungen als Entitäten an</string>
     <string name="pref_ha_prefix">Discovery-Prefix</string>
     <string name="pref_app_topic">Topic dieser App</string>
 </resources>

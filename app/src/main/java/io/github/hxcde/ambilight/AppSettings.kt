@@ -7,6 +7,9 @@ import androidx.preference.PreferenceManager
 import io.github.hxcde.ambilight.engine.AppProfiles
 import io.github.hxcde.ambilight.engine.EngineConfig
 import io.github.hxcde.ambilight.engine.LightAction
+import io.github.hxcde.ambilight.engine.LightScene
+import io.github.hxcde.ambilight.engine.PauseAction
+import io.github.hxcde.ambilight.engine.WakeAction
 import io.github.hxcde.ambilight.light.FixedColor
 import io.github.hxcde.ambilight.light.PipelineConfig
 import io.github.hxcde.ambilight.mqtt.MqttConfig
@@ -50,7 +53,7 @@ class AppSettings(private val prefs: SharedPreferences) {
         )
 
     val blackMode: BlackMode
-        get() = runCatching { BlackMode.valueOf(str(K_BLACK_MODE, BlackMode.COLOR.name)) }.getOrDefault(BlackMode.COLOR)
+        get() = enumPref(K_BLACK_MODE, BlackMode.COLOR)
     val blackBrightness: Int get() = prefs.getInt(K_BLACK_BRIGHTNESS, 80).coerceIn(1, 254)
     val blackColorLeft: FixedColor get() = fixedColor(K_BLACK_COLOR_LEFT, K_BLACK_COLOR_LEFT_CUSTOM)
     val blackColorRight: FixedColor get() = fixedColor(K_BLACK_COLOR_RIGHT, K_BLACK_COLOR_RIGHT_CUSTOM)
@@ -62,18 +65,30 @@ class AppSettings(private val prefs: SharedPreferences) {
     }
     val blackDelayMs: Long get() = 2_000L
 
-    val standbyAction: LightAction get() = lightAction(K_STANDBY_ACTION)
-    val stopAction: LightAction get() = lightAction(K_STOP_ACTION)
+    val standbyAction: LightAction get() = enumPref(K_STANDBY_ACTION, LightAction.OFF)
+    val stopAction: LightAction get() = enumPref(K_STOP_ACTION, LightAction.RESTORE)
+    val wakeAction: WakeAction get() = enumPref(K_WAKE_ACTION, WakeAction.STANDARD_UNTIL_PLAY)
+    val pauseAction: PauseAction get() = enumPref(K_PAUSE_ACTION, PauseAction.PAUSE_LIGHT)
     val autostart: Boolean get() = prefs.getBoolean(K_AUTOSTART, false)
 
-    private fun lightAction(key: String): LightAction =
-        runCatching { LightAction.valueOf(str(key, LightAction.RESTORE.name)) }.getOrDefault(LightAction.RESTORE)
+    val standardLight: LightScene
+        get() = LightScene(
+            sceneColor(K_STANDARD_COLOR_LEFT), sceneColor(K_STANDARD_COLOR_RIGHT),
+            prefs.getInt(K_STANDARD_BRIGHTNESS, 150).coerceIn(1, 254),
+        )
+    val pauseLight: LightScene
+        get() = sceneColor(K_PAUSE_COLOR).let { LightScene(it, it, prefs.getInt(K_PAUSE_BRIGHTNESS, 230).coerceIn(1, 254)) }
+
+    private fun sceneColor(key: String): FixedColor = FixedColor.parse(str(key, FixedColor.WARM)) ?: FixedColor.DEFAULT
+
+    private inline fun <reified T : Enum<T>> enumPref(key: String, def: T): T =
+        runCatching { enumValueOf<T>(str(key, def.name)) }.getOrDefault(def)
 
     val appDetection: Boolean get() = prefs.getBoolean(K_APP_DETECTION, true)
     val appProfiles: AppProfiles
         get() = AppProfiles(
             fallback = prefs.getStringSet(K_APPS_FALLBACK, AppProfiles.DEFAULT_FALLBACK) ?: emptySet(),
-            restore = prefs.getStringSet(K_APPS_RESTORE, emptySet()) ?: emptySet(),
+            standard = prefs.getStringSet(K_APPS_STANDARD, emptySet()) ?: emptySet(),
             off = prefs.getStringSet(K_APPS_OFF, emptySet()) ?: emptySet(),
         )
 
@@ -89,6 +104,10 @@ class AppSettings(private val prefs: SharedPreferences) {
             blackColorRight = blackColorRight,
             blackDelayMs = blackDelayMs,
             standbyAction = standbyAction,
+            standardLight = standardLight,
+            pauseLight = pauseLight,
+            pauseAction = pauseAction,
+            wakeAction = wakeAction,
         )
 
     val haDiscovery: Boolean get() = prefs.getBoolean(K_HA_DISCOVERY, true)
@@ -147,7 +166,15 @@ class AppSettings(private val prefs: SharedPreferences) {
         const val K_STOP_ACTION = "stop_action"
         const val K_APP_DETECTION = "app_detection"
         const val K_APPS_FALLBACK = "apps_fallback"
-        const val K_APPS_RESTORE = "apps_restore"
+        const val K_APPS_STANDARD = "apps_standard"
+        const val K_WAKE_ACTION = "wake_action"
+        const val K_PAUSE_ACTION = "pause_action"
+        const val K_STANDARD_COLOR_LEFT = "standard_color_left"
+        const val K_STANDARD_COLOR_RIGHT = "standard_color_right"
+        const val K_STANDARD_BRIGHTNESS = "standard_brightness"
+        const val K_PAUSE_COLOR = "pause_color"
+        const val K_PAUSE_BRIGHTNESS = "pause_brightness"
+        const val K_MEDIA_PERMISSION = "media_permission"
         const val K_APPS_OFF = "apps_off"
         const val K_APP_PERMISSION = "app_permission"
         const val K_AUTOSTART = "autostart"

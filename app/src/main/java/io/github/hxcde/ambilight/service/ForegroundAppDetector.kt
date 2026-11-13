@@ -20,6 +20,12 @@ class ForegroundAppDetector(private val context: Context) {
 
     fun hasPermission(): Boolean = hasPermission(context)
 
+    /** Startseiten-Apps (Launcher) des TV. */
+    val launchers: Set<String> by lazy {
+        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME)
+        context.packageManager.queryIntentActivities(intent, 0).mapNotNull { it.activityInfo?.packageName }.toSet()
+    }
+
     /** Liefert die aktuelle Vordergrund-App (Paketname) oder null, wenn unbekannt. */
     @Suppress("DEPRECATION")
     fun poll(): String? {

@@ -2,7 +2,7 @@ package io.github.hxcde.ambilight.mqtt
 
 /**
  * Topics und MQTT-Discovery-Payloads für Home Assistant:
- * Schalter (Ambilight an/pausiert), Sensoren (Modus, aktive App, Verzögerung, Zigbee-Last)
+ * Schalter (Ambilight an/pausiert), Sensoren (Modus, aktive App, Wiedergabe, Verzögerung, Zigbee-Last)
  * und alle Einstellungen aus [HaEntities] als steuerbare Entitäten.
  */
 class HomeAssistant(private val appTopic: String, private val prefix: String, private val clientId: String, private val version: String) {
@@ -11,6 +11,7 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
     val setTopic = "$appTopic/set"
     val modeTopic = "$appTopic/mode"
     val activeAppTopic = "$appTopic/app"
+    val playbackTopic = "$appTopic/playback"
     val statsTopic = "$appTopic/stats"
     val configSetFilter = "$appTopic/config/+/set"
     val birthTopic = "$prefix/status"
@@ -20,6 +21,7 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
     val switchConfigTopic = "$prefix/switch/$nodeId/ambilight/config"
     val sensorConfigTopic = "$prefix/sensor/$nodeId/mode/config"
     private val appSensorConfigTopic = "$prefix/sensor/$nodeId/active_app/config"
+    private val playbackConfigTopic = "$prefix/sensor/$nodeId/playback/config"
     private val latencyConfigTopic = "$prefix/sensor/$nodeId/latency/config"
     private val zigbeeConfigTopic = "$prefix/sensor/$nodeId/zigbee_rate/config"
 
@@ -49,6 +51,9 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
     private fun appSensorConfig(): String = """{"name":"Aktive App","unique_id":${q(clientId + "_active_app")},""" +
         """"state_topic":${q(activeAppTopic)},$availability,"icon":"mdi:application","device":$device}"""
 
+    private fun playbackSensorConfig(): String = """{"name":"Wiedergabe","unique_id":${q(clientId + "_playback")},""" +
+        """"state_topic":${q(playbackTopic)},$availability,"icon":"mdi:play-pause","device":$device}"""
+
     private fun statsSensorConfig(id: String, name: String, field: String, unit: String, icon: String): String =
         """{"name":${q(name)},"unique_id":${q(clientId + "_" + id)},"state_topic":${q(statsTopic)},""" +
             """"value_template":${q("{{ value_json.$field }}")},"unit_of_measurement":${q(unit)},""" +
@@ -72,6 +77,7 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
         add(switchConfigTopic to switchConfig())
         add(sensorConfigTopic to sensorConfig())
         add(appSensorConfigTopic to appSensorConfig())
+        add(playbackConfigTopic to playbackSensorConfig())
         add(latencyConfigTopic to statsSensorConfig("latency", "Verzögerung", "latency_ms", "ms", "mdi:timer-outline"))
         add(zigbeeConfigTopic to statsSensorConfig("zigbee_rate", "Zigbee-Befehle", "zigbee_per_s", "1/s", "mdi:zigbee"))
         HaEntities.ALL.forEach { add(entityConfigTopic(it) to entityConfig(it)) }

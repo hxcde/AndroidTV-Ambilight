@@ -49,6 +49,15 @@
             android:textSize="16sp"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/text_playback"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="16sp"
+            android:visibility="gone" />
+
         <Space
             android:layout_width="match_parent"
             android:layout_height="24dp" />

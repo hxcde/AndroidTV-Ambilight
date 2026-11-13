@@ -21,6 +21,7 @@ import io.github.hxcde.ambilight.AppSettings
 import io.github.hxcde.ambilight.R
 import io.github.hxcde.ambilight.engine.EngineStats
 import io.github.hxcde.ambilight.engine.Mode
+import io.github.hxcde.ambilight.engine.Playback
 import io.github.hxcde.ambilight.service.AmbilightState
 import org.junit.After
 import org.junit.Before
@@ -58,7 +59,7 @@ class ScreenshotTest {
             putString(AppSettings.K_BLACK_COLOR_RIGHT, "custom")
             putString(AppSettings.K_BLACK_COLOR_RIGHT_CUSTOM, "#2F6BFF")
             putStringSet(AppSettings.K_APPS_FALLBACK, setOf("com.netflix.ninja", "com.amazon.amazonvideo.livingroom", "com.disney.disneyplus"))
-            putStringSet(AppSettings.K_APPS_RESTORE, setOf("com.google.android.tvlauncher"))
+            putStringSet(AppSettings.K_APPS_STANDARD, setOf("com.google.android.tvlauncher"))
         }
         // Beispiel-Apps, wie sie am TV installiert wären
         val pm = shadowOf(ctx.packageManager)
@@ -95,7 +96,7 @@ class ScreenshotTest {
         AmbilightState.update {
             it.copy(
                 mode = Mode.ACTIVE, mqttConnected = true, leftColor = 0xFFE0702A.toInt(), rightColor = 0xFF2A8FE0.toInt(),
-                stats = stats, appDetection = true, activeApp = "Plex",
+                stats = stats, appDetection = true, activeApp = "Plex", mediaDetection = true, playback = Playback.PLAYING,
             )
         }
         main("02_start_aktiv.png", focusId = R.id.button_start_stop)
@@ -107,9 +108,22 @@ class ScreenshotTest {
             it.copy(
                 mode = Mode.APP_FALLBACK, mqttConnected = true, leftColor = 0xFF8000FF.toInt(), rightColor = 0xFF2F6BFF.toInt(),
                 stats = stats.copy(framesPerSec = 15f, messagesPerSec = 0f, zigbeePerSec = 0f), appDetection = true, activeApp = "Netflix",
+                mediaDetection = true, playback = Playback.PLAYING,
             )
         }
         main("03_start_app_ersatzmodus.png")
+    }
+
+    @Test
+    fun start_pausenlicht() {
+        AmbilightState.update {
+            it.copy(
+                mode = Mode.PAUSE_LIGHT, mqttConnected = true, leftColor = 0xFFFFC37A.toInt(), rightColor = 0xFFFFC37A.toInt(),
+                stats = stats.copy(messagesPerSec = 0f, zigbeePerSec = 0f), appDetection = true, activeApp = "Netflix",
+                mediaDetection = true, playback = Playback.PAUSED,
+            )
+        }
+        main("13_start_pausenlicht.png")
     }
 
     @Test
@@ -128,7 +142,9 @@ class ScreenshotTest {
             onView(isRoot()).captureRoboImage("$dir/06_einstellungen_ersatzfarben.png")
             scrollTo(scenario, AppSettings.K_APPS_OFF)
             onView(isRoot()).captureRoboImage("$dir/07_einstellungen_app_profile.png")
-            scrollTo(scenario, AppSettings.K_APP_TOPIC)
+            scrollTo(scenario, AppSettings.K_PAUSE_BRIGHTNESS)
+            onView(isRoot()).captureRoboImage("$dir/14_einstellungen_standard_pause.png")
+            scrollTo(scenario, AppSettings.K_AUTOSTART)
             onView(isRoot()).captureRoboImage("$dir/08_einstellungen_verhalten_ha.png")
         }
     }
@@ -138,6 +154,9 @@ class ScreenshotTest {
 
     @Test
     fun dialog_farbauswahl() = dialog(AppSettings.K_BLACK_COLOR_LEFT, "11_dialog_farbauswahl.png")
+
+    @Test
+    fun dialog_pause() = dialog(AppSettings.K_PAUSE_ACTION, "15_dialog_pause.png")
 
     @Test
     fun dialog_app_profil() = dialog(AppSettings.K_APPS_FALLBACK, "12_dialog_app_profil.png")

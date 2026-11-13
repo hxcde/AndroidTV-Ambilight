@@ -33,8 +33,13 @@ Alle Einstellungen werden in der App gesetzt (Einstellungen-Seite) und lokal in 
 | Geschützte Inhalte | Helligkeit (HA) | 80 | Gilt für beide Lampen im Ersatzmodus |
 | App-Profile | App-Erkennung (HA) | an | Braucht `GET_USAGE_STATS` (siehe Installation) |
 | App-Profile | Sofort Ersatzmodus | Netflix, Prime Video, Disney+, Apple TV, DAZN | Ohne 2-s-Wartezeit, auch in den (ungeschützten) Menüs dieser Apps |
-| App-Profile | Normales Licht / Licht aus | – | Normales Licht = gesicherten Zustand wiederherstellen, Ambilight ruht. Priorität: Licht aus > Normales Licht > Ersatzmodus. |
-| Verhalten | Bei TV-Standby / Beim Stoppen (HA) | Vorheriger Zustand | Vorheriger Zustand, Licht aus oder unverändert |
+| App-Profile | Standardlicht / Licht aus | – | Standardlicht = Szene „Standardlicht“, Ambilight ruht. Priorität: Licht aus > Standardlicht > Ersatzmodus. |
+| Standardlicht | Farbe links/rechts, Helligkeit (HA) | Warmweiß, 150 | Feste Szene für Einschalten, App-Profil, Pause oder Standby/Stopp |
+| Wiedergabe und Pause | Bei Pause (HA) | Pausenlicht | Pausenlicht, Standardlicht oder Ambilight weiter; greift nach 1 s Pause. Braucht die Freigabe als Benachrichtigungs-Listener. |
+| Wiedergabe und Pause | Pausenlicht Farbe, Helligkeit (HA) | Warmweiß, 230 | Gilt für beide Lampen |
+| Verhalten | Beim Einschalten des TV (HA) | Standardlicht bis zur Wiedergabe | Ohne Pause-Erkennung startet das Ambilight sofort |
+| Verhalten | Bei TV-Standby (HA) | Licht aus | Licht aus, vorheriger Zustand, Standardlicht oder unverändert |
+| Verhalten | Beim Stoppen (HA) | Vorheriger Zustand | wie oben |
 | Verhalten | Autostart | aus | Benötigt die ADB-Freigaben (siehe unten) |
 | Home Assistant | MQTT-Discovery, Prefix, Topic | an, `homeassistant`, `tv-ambilight` | |
 
@@ -56,14 +61,15 @@ Nach jedem Befehl veröffentlicht Z2M den neuen Zustand auf `<base>/<friendly_na
 | `<app_topic>/set` | HA → App | `ON` / `OFF`, pausiert das Ambilight, die Lampen sind dann frei für HA |
 | `<base>/<friendly_name>/get` | App → Z2M | Zustandsabfrage beim Start (für „Vorheriger Zustand“) |
 | `<base>/<friendly_name>` | Z2M → App | Statusmeldung: Ausgangszustand und Verzögerungsmessung |
-| `<app_topic>/mode` | App → HA | `Aktiv`, `Pausiert (Home Assistant)`, `Geschützter Inhalt`, `Ersatzmodus (App-Profil)`, `Normales Licht (App-Profil)`, `Licht aus (App-Profil)`, `Standby`, `Gestoppt` (retained) |
+| `<app_topic>/mode` | App → HA | `Aktiv`, `Standardlicht`, `Pausenlicht`, `Pausiert (Home Assistant)`, `Geschützter Inhalt`, `Ersatzmodus (App-Profil)`, `Standardlicht (App-Profil)`, `Licht aus (App-Profil)`, `Standby`, `Gestoppt` (retained) |
 | `<app_topic>/app` | App → HA | Name der App im Vordergrund (retained) |
+| `<app_topic>/playback` | App → HA | `Spielt`, `Pausiert`, `–` (retained) |
 | `<app_topic>/stats` | App → HA | alle 10 s: `{"latency_ms":84,"latency_max_ms":152,"zigbee_per_s":8.9,"messages_per_s":6.4,"fps":15.0,"dropped":0}` |
 | `<app_topic>/config/<id>` | App → HA | aktueller Wert einer Einstellung (retained) |
 | `<app_topic>/config/<id>/set` | HA → App | neuer Wert; Zahlen werden gerundet und begrenzt, Auswahlen per Anzeigetext |
 | `<ha_prefix>/<switch\|sensor\|number\|select>/<node>/<id>/config` | App → HA | Discovery (retained). Ist Discovery aus, werden die Configs mit leerem Payload entfernt. |
 
-IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_brightness`, `black_mode`, `black_color_left`, `black_color_right`, `brightness_mode`, `standby_action`, `stop_action`, `scene_cut`, `app_detection`.
+IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_brightness`, `black_mode`, `black_color_left`, `black_color_right`, `brightness_mode`, `standby_action`, `wake_action`, `pause_action`, `standard_color_left`, `standard_color_right`, `standard_brightness`, `pause_color`, `pause_brightness`, `stop_action`, `scene_cut`, `app_detection`.
 
 Beispiel ohne Home Assistant:
 ```bash
@@ -91,15 +97,20 @@ mosquitto_pub -h <broker> -u <user> -P <pass> -t tv-ambilight/config/brightness_
    adb shell appops set io.github.hxcde.ambilight GET_USAGE_STATS allow
    ```
    Alternativ am TV unter Einstellungen → Apps → Spezieller App-Zugriff → Nutzungsdatenzugriff, falls die TCL-Firmware diesen Punkt anbietet. Die App öffnet ihn über „Berechtigung Nutzungsdaten“.
-6. Bildschirmaufnahme dauerhaft erlauben, ohne Dialog. Nötig, wenn der Dialog bei TCL gar nicht erscheint:
+6. Wiedergabe/Pause erkennen (Pausenlicht, Standardlicht bis zur Wiedergabe):
+   ```bash
+   adb shell cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService
+   ```
+   Die App registriert dafür einen Benachrichtigungs-Listener, liest aber keine Benachrichtigungen, nur den Wiedergabezustand der Mediensitzungen. Zurücknehmen mit `disallow_listener` statt `allow_listener`.
+7. Bildschirmaufnahme dauerhaft erlauben, ohne Dialog. Nötig, wenn der Dialog bei TCL gar nicht erscheint:
    ```bash
    adb shell appops set io.github.hxcde.ambilight PROJECT_MEDIA allow
    ```
-7. Für den Autostart nach dem Booten bzw. Aufwachen aus dem Standby: Start aus dem Hintergrund erlauben:
+8. Für den Autostart nach dem Booten bzw. Aufwachen aus dem Standby: Start aus dem Hintergrund erlauben:
    ```bash
    adb shell appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow
    ```
-8. Danach in der App „Autostart“ aktivieren.
+9. Danach in der App „Autostart“ aktivieren.
 
 Zurücknehmen: dieselben Befehle mit `default` statt `allow`.
 
@@ -160,7 +171,7 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
   ```bash
   adb logcat -s Ambilight
   ```
-- Der Dienst läuft als Vordergrunddienst mit Benachrichtigung „TV Ambilight“; Stoppen über die App oder die Benachrichtigung.
+- Der Dienst läuft als Vordergrunddienst mit Benachrichtigung „TV Ambilight“ dauerhaft im Hintergrund, auch über TV-Standby hinweg; Stoppen über die App oder die Benachrichtigung. Nach einem Kaltstart startet er nur mit Autostart (ADB-Freigaben) neu.
 - Bei Standby (Bildschirm aus) werden die Lampen je nach Einstellung wiederhergestellt oder ausgeschaltet. Beendet das System dabei die Bildaufnahme und Autostart ist aktiv, wird die Freigabe beim Einschalten neu angefragt.
 - Feintuning: Statistik auf der Startseite bzw. Sensor „Verzögerung“ in HA beobachten. Steigt die Verzögerung stetig oder „verworfen“ wächst, Updates pro Sekunde senken oder Helligkeit „Fest“ wählen.
 - Abhängigkeiten aktualisieren: Versionen in `build.gradle.kts` (Plugins) und `app/build.gradle.kts`.
@@ -175,6 +186,9 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
 | Test OK, aber Lampen reagieren nicht | Falscher Friendly Name oder Base-Topic | Namen exakt wie in Z2M; Topic mit `mosquitto_sub -t '<base>/#' -v` prüfen |
 | Lampen ruckeln oder hängen hinterher | Statistik: Verzögerung hoch/steigend, Zigbee-Befehle/s > 10 | Updates pro Sekunde auf 3–4 senken, Helligkeit „Fest“, Übergangszeit erhöhen; Koordinator näher an die Bars, Zigbee-Kanal abseits des WLANs |
 | Verzögerung zeigt „–“ | Keine Statusmeldung von Z2M | Lampen-Namen prüfen; Z2M-Option `output` (json) und kein `retain`/`debounce`-Sonderfall |
+| „Wiedergabe: Pause-Erkennung nicht freigegeben“ | Benachrichtigungs-Listener nicht freigegeben | `cmd notification allow_listener …` per ADB (Installation, Schritt 6) |
+| Kein Pausenlicht, obwohl freigegeben | App meldet keine Mediensitzung oder Pause dauerte < 1 s | Startseite zeigt „Wiedergabe: …“; bleibt sie bei „–“, unterstützt die App das nicht |
+| Nach dem Einschalten bleibt Standardlicht | Keine Wiedergabe erkannt | Wiedergabe starten genügt. Apps ohne Mediensitzung (z. B. Live-TV) beenden das Standardlicht beim Öffnen automatisch, sofern die App-Erkennung freigegeben ist. Sonst „Beim Einschalten“ auf „Sofort Ambilight“ stellen. |
 | App: „Berechtigung fehlt“ | Nutzungsdatenzugriff nicht erteilt | `GET_USAGE_STATS allow` per ADB (Installation, Schritt 5) |
 | Profil greift nicht | App nicht in der Liste oder falsche App erkannt | Startseite zeigt „App: …“; diese App in den App-Profilen ankreuzen |
 | Nach Stopp falsches Licht | Zustand beim Start nicht gelesen (Z2M antwortete nicht binnen 2 s) | Log prüfen (`adb logcat -s Ambilight`); notfalls „Beim Stoppen: Licht aus“ |

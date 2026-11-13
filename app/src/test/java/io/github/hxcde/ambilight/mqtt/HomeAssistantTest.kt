@@ -63,7 +63,7 @@ class HaEntitiesTest {
     @Test
     fun discoveryContainsAllEntities() {
         val d = ha.discovery()
-        assertEquals(5 + HaEntities.ALL.size, d.size)
+        assertEquals(6 + HaEntities.ALL.size, d.size)
         val select = d.first { it.first == "homeassistant/select/tv-ambilight/black_mode/config" }.second
         assertTrue(select, select.contains("\"options\":[\"Feste Farbe (pro Lampe)\""))
         val number = d.first { it.first == "homeassistant/number/tv-ambilight/smoothing/config" }.second

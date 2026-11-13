@@ -19,7 +19,13 @@ data class EngineConfig(
     val blackColorLeft: FixedColor = FixedColor.DEFAULT,
     val blackColorRight: FixedColor = FixedColor.DEFAULT,
     val blackDelayMs: Long = 2_000,
-    val standbyAction: LightAction = LightAction.RESTORE,
+    val standbyAction: LightAction = LightAction.OFF,
+    val standardLight: LightScene = LightScene(FixedColor.DEFAULT, FixedColor.DEFAULT, 150),
+    val pauseLight: LightScene = LightScene(FixedColor.DEFAULT, FixedColor.DEFAULT, 230),
+    val pauseAction: PauseAction = PauseAction.PAUSE_LIGHT,
+    /** So lange muss pausiert sein, bevor das Pausenlicht kommt (kurzes Spulen löst nichts aus). */
+    val pauseDelayMs: Long = 1_000,
+    val wakeAction: WakeAction = WakeAction.STANDARD_UNTIL_PLAY,
 )
 
 /** Ziel der Engine: MQTT-Nachrichten und Statusänderungen. */
@@ -32,7 +38,8 @@ interface EngineOutput {
 /**
  * Steuerlogik ohne Android-Abhängigkeiten: entscheidet pro Bild, was an welche Lampe geht.
  *
- * - Modi mit Priorität: Standby > Pause (Home Assistant) > App-Profil > geschützter Inhalt > aktiv
+ * - Modi mit Priorität: Standby > Pause (Home Assistant) > App-Profil Aus/Standardlicht > Pausenlicht >
+ *   Standardlicht bis zur Wiedergabe > App-Profil Ersatzmodus > geschützter Inhalt > aktiv
  * - Szenenwechsel werden sofort und ohne Überblendung gesendet, sonst höchstens alle [EngineConfig.sendIntervalMs]
  * - Vor dem ersten Senden wird der Lampenzustand gesichert ([LightSnapshot]) und bei Freigabe wiederhergestellt
  * - Statistik: Bilder, MQTT-Nachrichten, Zigbee-Befehle, Verzögerung bis zur Statusmeldung von Zigbee2MQTT
@@ -57,6 +64,14 @@ class AmbilightEngine(
     private var screenOn = true
     private var haPaused = false
     private var appAction = AppAction.AMBILIGHT
+
+    // Wiedergabe (Mediensitzung)
+    private var mediaAvailable = false
+    private var playback = Playback.NONE
+    private var pausedSince = 0L
+    private var pauseActive = false
+    /** Nach Einschalten/Start: Standardlicht, bis etwas abgespielt wird. */
+    private var wakeHold = false
 
     // Schwarzbild
     private var protectedActive = false
@@ -85,14 +100,24 @@ class AmbilightEngine(
     fun updateConfig(newConfig: EngineConfig, now: Long) {
         val old = config
         config = newConfig
-        // Feste Farben/Helligkeit im Ersatzmodus sofort neu anwenden
-        if ((mode == Mode.PROTECTED || mode == Mode.APP_FALLBACK) &&
-            (old.blackMode != newConfig.blackMode || old.blackColorLeft != newConfig.blackColorLeft ||
-                old.blackColorRight != newConfig.blackColorRight || old.blackBrightness != newConfig.blackBrightness)
-        ) {
-            applyFallback()
-        }
+        if (newConfig.pauseAction == PauseAction.AMBILIGHT) pauseActive = false
+        if (newConfig.wakeAction == WakeAction.AMBILIGHT) wakeHold = false
+        val before = mode
+        updateMode(now)
+        // Geänderte Farben/Helligkeiten im aktuellen festen Modus sofort neu anwenden
+        val fixedChanged = old.blackMode != newConfig.blackMode || old.blackColorLeft != newConfig.blackColorLeft ||
+            old.blackColorRight != newConfig.blackColorRight || old.blackBrightness != newConfig.blackBrightness ||
+            old.standardLight != newConfig.standardLight || old.pauseLight != newConfig.pauseLight ||
+            old.standbyAction != newConfig.standbyAction
+        if (mode == before && fixedChanged && mode != Mode.ACTIVE && mode != Mode.PAUSED) reapplyMode()
         if (old.blackMode != newConfig.blackMode) checkBlack(now)
+        checkPause(now)
+    }
+
+    /** Ambilight wurde gestartet (Bildaufnahme läuft): Einschaltverhalten anwenden. */
+    fun startSession(now: Long) {
+        beginWake()
+        updateMode(now)
     }
 
     // ------------------------------------------------------------ Eingänge
@@ -100,8 +125,50 @@ class AmbilightEngine(
     fun setScreenOn(on: Boolean, now: Long) {
         if (screenOn == on) return
         screenOn = on
-        if (on) blackSince = 0L
+        if (on) {
+            blackSince = 0L
+            beginWake()
+        }
         updateMode(now)
+    }
+
+    /** Standardlicht nach dem Einschalten vorzeitig beenden (z. B. App ohne Mediensitzung geöffnet). */
+    fun endWakeHold(now: Long) {
+        if (!wakeHold) return
+        wakeHold = false
+        updateMode(now)
+    }
+
+    /** Ob Wiedergabe/Pause erkannt werden kann (Berechtigung für Mediensitzungen erteilt). */
+    fun setMediaAvailable(available: Boolean, now: Long) {
+        if (mediaAvailable == available) return
+        mediaAvailable = available
+        if (!available) {
+            playback = Playback.NONE
+            pausedSince = 0L
+            pauseActive = false
+            wakeHold = false
+        }
+        updateMode(now)
+    }
+
+    fun setPlayback(state: Playback, now: Long) {
+        if (playback == state) return
+        playback = state
+        when (state) {
+            Playback.PLAYING -> {
+                wakeHold = false
+                pausedSince = 0L
+                pauseActive = false
+            }
+            Playback.PAUSED -> pausedSince = now
+            Playback.NONE -> {
+                pausedSince = 0L
+                pauseActive = false
+            }
+        }
+        updateMode(now)
+        checkPause(now)
     }
 
     fun setHaPaused(paused: Boolean, now: Long) {
@@ -181,6 +248,7 @@ class AmbilightEngine(
     /** Regelmäßig aufrufen (z. B. alle 500 ms): Zeitüberschreitungen prüfen. */
     fun tick(now: Long) {
         checkBlack(now)
+        checkPause(now)
         if (snapshotUntil != 0L && now >= snapshotUntil) snapshotUntil = 0L
     }
 
@@ -213,7 +281,10 @@ class AmbilightEngine(
         !screenOn -> Mode.STANDBY
         haPaused -> Mode.PAUSED
         appAction == AppAction.OFF -> Mode.APP_OFF
-        appAction == AppAction.RESTORE -> Mode.APP_RESTORE
+        appAction == AppAction.STANDARD -> Mode.APP_STANDARD
+        pauseActive && config.pauseAction == PauseAction.PAUSE_LIGHT -> Mode.PAUSE_LIGHT
+        pauseActive && config.pauseAction == PauseAction.STANDARD -> Mode.STANDARD
+        wakeHold -> Mode.STANDARD
         appAction == AppAction.FALLBACK -> Mode.APP_FALLBACK
         protectedActive -> Mode.PROTECTED
         else -> Mode.ACTIVE
@@ -238,7 +309,8 @@ class AmbilightEngine(
     private fun reapplyMode() {
         when (mode) {
             Mode.STANDBY -> release(config.standbyAction)
-            Mode.APP_RESTORE -> release(LightAction.RESTORE)
+            Mode.APP_STANDARD, Mode.STANDARD -> applyScene(config.standardLight)
+            Mode.PAUSE_LIGHT -> applyScene(config.pauseLight)
             Mode.APP_OFF -> release(LightAction.OFF)
             Mode.PROTECTED, Mode.APP_FALLBACK -> applyFallback()
             Mode.ACTIVE, Mode.PAUSED, Mode.STOPPED -> Unit
@@ -250,6 +322,25 @@ class AmbilightEngine(
         if (now - blackSince < config.blackDelayMs) return
         protectedActive = true
         updateMode(now)
+    }
+
+    private fun beginWake() {
+        wakeHold = config.wakeAction == WakeAction.STANDARD_UNTIL_PLAY && mediaAvailable && playback != Playback.PLAYING
+    }
+
+    private fun checkPause(now: Long) {
+        if (pauseActive || pausedSince == 0L || config.pauseAction == PauseAction.AMBILIGHT) return
+        if (now - pausedSince < config.pauseDelayMs) return
+        pauseActive = true
+        updateMode(now)
+    }
+
+    private fun scenePayload(i: Int, scene: LightScene, transition: Double): String? =
+        outputs[i].payloadFor(LightState.fixed(if (i == 0) scene.left else scene.right, scene.brightness), config.pipeline, transition, force = true)
+
+    private fun applyScene(scene: LightScene) {
+        for (i in 0..1) send(i, scenePayload(i, scene, 1.0), 0)
+        out.preview(scene.left.previewArgb, scene.right.previewArgb)
     }
 
     private fun applyFallback() {
@@ -270,7 +361,11 @@ class AmbilightEngine(
     private fun release(action: LightAction) {
         for (i in 0..1) releasePayload(i, action)?.let { send(i, it, 0) }
         if (action == LightAction.RESTORE) lampsInUserState = true
-        out.preview(if (action == LightAction.NONE) PREVIEW_UNCHANGED else BLACK, if (action == LightAction.NONE) PREVIEW_UNCHANGED else BLACK)
+        when (action) {
+            LightAction.STANDARD -> out.preview(config.standardLight.left.previewArgb, config.standardLight.right.previewArgb)
+            LightAction.NONE -> out.preview(PREVIEW_UNCHANGED, PREVIEW_UNCHANGED)
+            LightAction.OFF, LightAction.RESTORE -> out.preview(BLACK, BLACK)
+        }
     }
 
     private fun releasePayload(i: Int, action: LightAction): String? {
@@ -278,6 +373,7 @@ class AmbilightEngine(
         return when (action) {
             LightAction.NONE -> null
             LightAction.OFF -> o.payloadFor(LightState.OFF, config.pipeline, 1.0, force = true)
+            LightAction.STANDARD -> scenePayload(i, config.standardLight, 1.0)
             LightAction.RESTORE -> {
                 o.invalidate()
                 snapshots[i]?.payload(1.0) ?: o.payloadFor(LightState.OFF, config.pipeline, 1.0, force = true)

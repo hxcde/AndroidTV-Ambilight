@@ -28,10 +28,25 @@ object Options {
     )
 
     val LIGHT_ACTION = listOf(
-        Option("RESTORE", "Vorheriger Zustand"),
         Option("OFF", "Licht aus"),
+        Option("RESTORE", "Vorheriger Zustand"),
+        Option("STANDARD", "Standardlicht"),
         Option("NONE", "Unverändert lassen"),
     )
+
+    val PAUSE_ACTION = listOf(
+        Option("PAUSE_LIGHT", "Pausenlicht"),
+        Option("STANDARD", "Standardlicht"),
+        Option("AMBILIGHT", "Ambilight läuft weiter"),
+    )
+
+    val WAKE_ACTION = listOf(
+        Option("STANDARD_UNTIL_PLAY", "Standardlicht, bis etwas abgespielt wird"),
+        Option("AMBILIGHT", "Sofort Ambilight"),
+    )
+
+    /** Farben für Standard- und Pausenlicht (ohne „Eigene Farbe“). */
+    val SCENE_COLOR = FIXED_COLOR.filter { it.value != "custom" }
 
     val BRIGHTNESS_MODE = listOf(
         Option("DYNAMIC", "Dynamisch (folgt dem Bild)"),

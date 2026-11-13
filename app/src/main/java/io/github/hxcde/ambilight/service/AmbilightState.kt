@@ -2,6 +2,7 @@ package io.github.hxcde.ambilight.service
 
 import io.github.hxcde.ambilight.engine.EngineStats
 import io.github.hxcde.ambilight.engine.Mode
+import io.github.hxcde.ambilight.engine.Playback
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -18,6 +19,9 @@ data class Status(
     val activeApp: String? = null,
     /** null = Erkennung ausgeschaltet, false = Berechtigung fehlt. */
     val appDetection: Boolean? = null,
+    val playback: Playback = Playback.NONE,
+    /** false = Freigabe für Mediensitzungen fehlt (keine Pause-Erkennung). */
+    val mediaDetection: Boolean = false,
 )
 
 /** Laufzeitstatus des Dienstes für die Oberfläche (gleicher Prozess). */

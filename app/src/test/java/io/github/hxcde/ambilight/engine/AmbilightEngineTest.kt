@@ -27,6 +27,9 @@ class AmbilightEngineTest {
         blackMode = BlackMode.COLOR,
         blackColorLeft = FixedColor.parse("#8000FF")!!,
         blackColorRight = FixedColor.parse("#0000FF")!!,
+        standbyAction = LightAction.RESTORE,
+        standardLight = LightScene(FixedColor.DEFAULT, FixedColor.parse("#FF6A00")!!, 150),
+        pauseLight = LightScene(FixedColor.DEFAULT, FixedColor.DEFAULT, 230),
     )
 
     @Before
@@ -158,17 +161,120 @@ class AmbilightEngineTest {
     }
 
     @Test
-    fun appProfileRestoreUsesSnapshot() {
+    fun appProfileStandardUsesStandardLight() {
         connectWithSnapshot()
         engine.onFrame(frame(0xFF0000, 0x0000FF), 2_000)
         sent.clear()
-        engine.setAppAction(AppAction.RESTORE, 2_100)
-        assertEquals("""{"state":"ON","brightness":120,"color_temp":370,"transition":1.00}""", sentTo(leftSet).single())
-        assertEquals("""{"state":"OFF","transition":1.00}""", sentTo(rightSet).single())
+        engine.setAppAction(AppAction.STANDARD, 2_100)
+        assertEquals(Mode.APP_STANDARD, engine.mode)
+        assertTrue(sentTo(leftSet).single().contains("\"brightness\":150"))
+        assertTrue(sentTo(rightSet).single().contains("\"x\":0.6"))
         sent.clear()
-        // zurück zum Ambilight: Zustand wird neu gesichert
         engine.setAppAction(AppAction.AMBILIGHT, 3_000)
+        engine.onFrame(frame(0xFF0000, 0x0000FF), 3_100)
+        assertEquals(2, sent.size)
+    }
+
+    @Test
+    fun haPauseThenResumeTakesNewSnapshot() {
+        connectWithSnapshot()
+        engine.setHaPaused(true, 2_000)
+        sent.clear()
+        engine.setHaPaused(false, 3_000)
         assertEquals(listOf("z2m/L/get", "z2m/R/get"), sent.map { it.first })
+    }
+
+    @Test
+    fun wakeShowsStandardLightUntilPlayback() {
+        connectWithSnapshot()
+        engine.setMediaAvailable(true, 1_500)
+        engine.startSession(2_000)
+        assertEquals(Mode.STANDARD, engine.mode)
+        assertEquals(2, sent.size)
+        sent.clear()
+        engine.onFrame(frame(0xFF0000, 0x0000FF), 2_200)
+        assertTrue("Standardlicht hält bis zur Wiedergabe", sent.isEmpty())
+        engine.setPlayback(Playback.PLAYING, 3_000)
+        assertEquals(Mode.ACTIVE, engine.mode)
+        engine.onFrame(frame(0xFF0000, 0x0000FF), 3_100)
+        assertEquals(2, sent.size)
+    }
+
+    @Test
+    fun wakeHoldCanBeEndedEarly() {
+        connectWithSnapshot()
+        engine.setMediaAvailable(true, 1_500)
+        engine.startSession(2_000)
+        assertEquals(Mode.STANDARD, engine.mode)
+        engine.endWakeHold(2_500)
+        assertEquals(Mode.ACTIVE, engine.mode)
+    }
+
+    @Test
+    fun wakeWithoutMediaDetectionStartsAmbilightDirectly() {
+        connectWithSnapshot()
+        engine.startSession(2_000)
+        assertEquals(Mode.ACTIVE, engine.mode)
+    }
+
+    @Test
+    fun screenOnAfterStandbyShowsStandardLight() {
+        connectWithSnapshot()
+        engine.setMediaAvailable(true, 1_500)
+        engine.setPlayback(Playback.PLAYING, 1_600)
+        engine.setScreenOn(false, 2_000)
+        engine.setPlayback(Playback.NONE, 2_100)
+        engine.setScreenOn(true, 5_000)
+        assertEquals(Mode.STANDARD, engine.mode)
+    }
+
+    @Test
+    fun pauseLightAfterDelayAndBackOnPlay() {
+        connectWithSnapshot()
+        engine.setMediaAvailable(true, 1_500)
+        engine.setPlayback(Playback.PLAYING, 1_600)
+        engine.onFrame(frame(0xFF0000, 0x0000FF), 2_000)
+        sent.clear()
+        engine.setPlayback(Playback.PAUSED, 3_000)
+        engine.tick(3_500)
+        assertEquals("kurze Pause (Spulen) löst nichts aus", Mode.ACTIVE, engine.mode)
+        engine.tick(4_100)
+        assertEquals(Mode.PAUSE_LIGHT, engine.mode)
+        assertTrue(sentTo(leftSet).single().contains("\"brightness\":230"))
+        sent.clear()
+        engine.setPlayback(Playback.PLAYING, 6_000)
+        assertEquals(Mode.ACTIVE, engine.mode)
+    }
+
+    @Test
+    fun pauseBeatsAppFallback() {
+        connectWithSnapshot()
+        engine.setMediaAvailable(true, 1_500)
+        engine.setPlayback(Playback.PLAYING, 1_600)
+        engine.setAppAction(AppAction.FALLBACK, 2_000)
+        assertEquals(Mode.APP_FALLBACK, engine.mode)
+        engine.setPlayback(Playback.PAUSED, 3_000)
+        engine.tick(4_100)
+        assertEquals(Mode.PAUSE_LIGHT, engine.mode)
+        engine.setPlayback(Playback.PLAYING, 5_000)
+        assertEquals(Mode.APP_FALLBACK, engine.mode)
+    }
+
+    @Test
+    fun pauseActionAmbilightIgnoresPause() {
+        connectWithSnapshot()
+        engine.updateConfig(config.copy(pauseAction = PauseAction.AMBILIGHT), 1_000)
+        engine.setMediaAvailable(true, 1_500)
+        engine.setPlayback(Playback.PAUSED, 2_000)
+        engine.tick(5_000)
+        assertEquals(Mode.ACTIVE, engine.mode)
+    }
+
+    @Test
+    fun stopWithStandardLight() {
+        connectWithSnapshot()
+        val final = engine.finalMessages(LightAction.STANDARD)
+        assertTrue(final.all { it.second.contains("\"brightness\":150") })
     }
 
     @Test
@@ -209,9 +315,9 @@ class AmbilightEngineTest {
 
     @Test
     fun appProfilesPriority() {
-        val p = AppProfiles(fallback = setOf("a", "b"), restore = setOf("b", "c"), off = setOf("c"))
+        val p = AppProfiles(fallback = setOf("a", "b"), standard = setOf("b", "c"), off = setOf("c"))
         assertEquals(AppAction.FALLBACK, p.actionFor("a"))
-        assertEquals(AppAction.RESTORE, p.actionFor("b"))
+        assertEquals(AppAction.STANDARD, p.actionFor("b"))
         assertEquals(AppAction.OFF, p.actionFor("c"))
         assertEquals(AppAction.AMBILIGHT, p.actionFor("x"))
         assertEquals(AppAction.AMBILIGHT, p.actionFor(null))

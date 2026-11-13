@@ -41,6 +41,7 @@ import io.github.hxcde.ambilight.engine.AppAction
 import io.github.hxcde.ambilight.engine.AppProfiles
 import io.github.hxcde.ambilight.engine.EngineOutput
 import io.github.hxcde.ambilight.engine.Mode
+import io.github.hxcde.ambilight.engine.Playback
 import io.github.hxcde.ambilight.light.LightOutput
 import io.github.hxcde.ambilight.mqtt.HaEntities
 import io.github.hxcde.ambilight.mqtt.HaEntity
@@ -67,6 +68,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
     private lateinit var worker: HandlerThread
     private lateinit var handler: Handler
     private lateinit var appDetector: ForegroundAppDetector
+    private lateinit var mediaWatcher: MediaWatcher
 
     private var mqtt: MqttConnection? = null
     private var ha: HomeAssistant? = null
@@ -89,6 +91,8 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
     private var haPaused = false
     private var profiles = AppProfiles()
     private var currentApp: String? = null
+    private var mediaAvailable = false
+    private var playback = Playback.NONE
     private var statsRound = 0
 
     private val screenReceiver = object : BroadcastReceiver() {
@@ -117,6 +121,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
     private val appLoop = object : Runnable {
         override fun run() {
             pollForegroundApp()
+            pollMedia()
             handler.postDelayed(this, 1_000)
         }
     }
@@ -165,6 +170,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
 
         worker = HandlerThread("ambilight-worker").also { it.start() }
         handler = Handler(worker.looper)
+        mediaWatcher = MediaWatcher(this, handler) { updatePlayback() }
         handler.post { connect(rebuildEngine = true) }
 
         prefs.registerOnSharedPreferenceChangeListener(this)
@@ -194,6 +200,8 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
                 it.setScreenOn(screenOn, now)
                 it.setHaPaused(haPaused, now)
                 it.setAppAction(currentAppAction(), now)
+                it.setMediaAvailable(mediaAvailable, now)
+                it.setPlayback(playback, now)
             }
         }
         val e = engine!!
@@ -276,6 +284,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
             return
         }
         Log.i(TAG, "Aufnahme läuft mit ${w}x$h")
+        engine?.startSession(SystemClock.elapsedRealtime())
         engine?.let { AmbilightState.update { s -> s.copy(mode = it.mode) } }
         updateNotification(engine?.mode ?: Mode.ACTIVE)
     }
@@ -391,6 +400,33 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         ha?.let { mqtt?.publish(it.activeAppTopic, label ?: "", retain = true) }
     }
 
+    // ---------------------------------------------------------------- Wiedergabe / Pause
+
+    private fun pollMedia() {
+        val available = mediaWatcher.ensureStarted()
+        if (available != mediaAvailable) {
+            mediaAvailable = available
+            engine?.setMediaAvailable(available, SystemClock.elapsedRealtime())
+            AmbilightState.update { it.copy(mediaDetection = available) }
+        }
+        updatePlayback()
+    }
+
+    private fun updatePlayback() {
+        val fg = if (settings.appDetection && appDetector.hasPermission()) currentApp else null
+        // App ohne Mediensitzung (z. B. Live-TV) geöffnet: nicht auf Wiedergabe warten, Ambilight sofort
+        if (fg != null && fg != packageName && fg !in appDetector.launchers && !mediaWatcher.hasSession(fg)) {
+            engine?.endWakeHold(SystemClock.elapsedRealtime())
+        }
+        val p = mediaWatcher.state(fg)
+        if (p == playback) return
+        playback = p
+        Log.i(TAG, "Wiedergabe: ${p.label}")
+        engine?.setPlayback(p, SystemClock.elapsedRealtime())
+        AmbilightState.update { it.copy(playback = p) }
+        ha?.let { mqtt?.publish(it.playbackTopic, p.label, retain = true) }
+    }
+
     // ---------------------------------------------------------------- Einstellungen live
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
@@ -426,6 +462,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         m.publish(h.stateTopic, if (haPaused) "OFF" else "ON", retain = true)
         m.publish(h.modeTopic, (engine?.mode ?: Mode.ACTIVE).label, retain = true)
         m.publish(h.activeAppTopic, appDetector.label(currentApp) ?: "", retain = true)
+        m.publish(h.playbackTopic, playback.label, retain = true)
         HaEntities.ALL.forEach { publishEntityState(it) }
         publishDiscovery()
     }
@@ -553,6 +590,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
             val stopAction = settings.stopAction
             handler.removeCallbacksAndMessages(null)
             handler.post {
+                mediaWatcher.stop()
                 releaseProjection()
                 val final = ArrayList<Triple<String, String, Boolean>>()
                 engine?.finalMessages(stopAction)?.forEach { (t, p) -> final += Triple(t, p, false) }

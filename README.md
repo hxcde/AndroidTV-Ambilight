@@ -36,10 +36,12 @@ flowchart LR
 - **Szenenwechsel sofort:** harte Schnitte ohne Verzögerung und ohne Überblendung
 - **Helligkeitsmodus „Fest“:** nur noch Farbe senden, halbiert die Zigbee-Last (ein statt zwei Befehle pro Update)
 - **Ersatzmodus für Netflix, Prime & Co:** feste Farbe pro Lampe, letzte Farbe halten oder Licht aus
-- **App-Profile:** Die App erkennt, was gerade läuft. Netflix & Co → sofort Ersatzfarben ohne schwarze Pause; Startseite → normales Licht; frei wählbar pro App.
-- **Vorheriges Licht wiederherstellen:** Vor dem Start merkt sich die App den Zustand der Lampen und stellt ihn bei Standby bzw. Stopp wieder her, statt einfach auszuschalten.
+- **TV an → Standardlicht, TV aus → Licht aus:** Beim Einschalten gehen die Lampen auf ein frei wählbares Standardlicht (z. B. Warmweiß), bis etwas abgespielt wird; beim Ausschalten gehen sie aus.
+- **Pausenlicht:** Wird ein Film pausiert (auch bei Netflix & Co), werden die Lampen nach 1 s z. B. hell warmweiß; beim Weiterschauen übernimmt sofort wieder das Ambilight.
+- **App-Profile:** Die App erkennt, was gerade läuft. Netflix & Co → sofort Ersatzfarben ohne schwarze Pause; Startseite → Standardlicht; frei wählbar pro App.
+- **Vorheriges Licht wiederherstellen:** Vor dem Start merkt sich die App den Zustand der Lampen und kann ihn bei Standby bzw. Stopp wiederherstellen.
 - **Statistik auf der Startseite:** Bilder/s, MQTT- und Zigbee-Befehle/s, Verzögerung bis zur Lampe (Ø und max) und verworfene Updates
-- **Home Assistant:** Schalter zum Pausieren, Sensoren (Modus, aktive App, Verzögerung, Zigbee-Last) und alle wichtigen Einstellungen als steuerbare Entitäten, automatisch per MQTT-Discovery
+- **Home Assistant:** Schalter zum Pausieren, Sensoren (Modus, aktive App, Wiedergabe, Verzögerung, Zigbee-Last) und alle wichtigen Einstellungen als steuerbare Entitäten, automatisch per MQTT-Discovery
 - **Einstellungen gelten sofort**, auch während das Ambilight läuft
 - Erkennung von Kino- und 4:3-Balken
 - Verbindungstest auf Knopfdruck: links rot, rechts blau
@@ -56,12 +58,22 @@ flowchart LR
 | ![Gestoppt](docs/screenshots/01_start_gestoppt.png) | ![Aktiv](docs/screenshots/02_start_aktiv.png) |
 | Startpunkt nach dem Öffnen. **Ambilight starten** fragt einmal die Bildschirmfreigabe an und startet den Hintergrunddienst. | Status, MQTT-Verbindung und erkannte App oben. Rechts die Live-Vorschau der Farben, die gerade an die Lampen gehen, darunter die **Statistik**. Der blaue Rahmen zeigt den Fokus der Fernbedienung. |
 
-| Netflix läuft (App-Profil) | Verbindungstest |
+| Netflix läuft (App-Profil) | Netflix pausiert (Pausenlicht) |
 |---|---|
-| ![App-Ersatzmodus](docs/screenshots/03_start_app_ersatzmodus.png) | ![Verbindungstest](docs/screenshots/09_verbindungstest.png) |
-| Netflix ist als „Sofort Ersatzmodus“ eingetragen: Die Lampen springen beim Öffnen direkt auf die Ersatzfarben, hier links Lila und rechts Blau. Zigbee hat dann Pause. | Prüft Broker, Login und Lampen-Namen, ohne das Ambilight zu starten: Die linke Lampe leuchtet rot, die rechte blau. So siehst du auch sofort, ob links und rechts vertauscht sind. |
+| ![App-Ersatzmodus](docs/screenshots/03_start_app_ersatzmodus.png) | ![Pausenlicht](docs/screenshots/13_start_pausenlicht.png) |
+| Netflix ist als „Sofort Ersatzmodus“ eingetragen: Die Lampen springen beim Öffnen direkt auf die Ersatzfarben, hier links Lila und rechts Blau. Zigbee hat dann Pause. | Film pausiert: Nach 1 s gehen beide Lampen auf das Pausenlicht (hier hell warmweiß). Beim Weiterschauen geht es sofort zurück. |
 
-Das Ambilight läuft als Hintergrunddienst weiter, wenn du die App verlässt. Gestoppt wird über die Startseite oder die Benachrichtigung.
+| Verbindungstest | |
+|---|---|
+| ![Verbindungstest](docs/screenshots/09_verbindungstest.png) | Prüft Broker, Login und Lampen-Namen, ohne das Ambilight zu starten: Die linke Lampe leuchtet rot, die rechte blau. So siehst du auch sofort, ob links und rechts vertauscht sind. |
+
+### Läuft die App im Hintergrund?
+
+Ja. Es muss nichts zusätzlich installiert werden: Der Dienst ist Teil der App und läuft als Android-Vordergrunddienst (mit Benachrichtigung „TV Ambilight“) weiter, wenn du die App verlässt, die App wechselst oder den TV in den Standby schickst. Er endet erst, wenn du ihn stoppst (Startseite oder Benachrichtigung).
+
+- **TV aus/an (Standby):** Der Dienst bleibt aktiv, schaltet beim Ausschalten die Lampen aus und beim Einschalten auf das Standardlicht.
+- **Kaltstart** (Netzstecker, Neustart, Update): Danach läuft der Dienst nur mit **Autostart** wieder an. Dafür braucht es einmalig die ADB-Freigaben `PROJECT_MEDIA` und `SYSTEM_ALERT_WINDOW` (siehe [Installation](#optionale-adb-freigaben)).
+- Beendet die TCL-Firmware die Bildaufnahme im Standby, fragt die App sie beim Einschalten automatisch neu an (ebenfalls mit Autostart).
 
 #### Statistik lesen
 
@@ -83,12 +95,17 @@ Das Ambilight läuft als Hintergrunddienst weiter, wenn du die App verlässt. Ge
 | Ersatzfarben | App-Profile |
 |---|---|
 | ![Ersatzfarben](docs/screenshots/06_einstellungen_ersatzfarben.png) | ![App-Profile](docs/screenshots/07_einstellungen_app_profile.png) |
-| Was bei schwarzem Bild passiert, plus eigene Farbe pro Lampe mit Farbvorschau und Helligkeit. | App-Erkennung an/aus, Status der Berechtigung und drei Listen: **Sofort Ersatzmodus**, **Normales Licht (kein Ambilight)** und **Licht aus**. |
+| Was bei schwarzem Bild passiert, plus eigene Farbe pro Lampe mit Farbvorschau und Helligkeit. | App-Erkennung an/aus, Status der Berechtigung und drei Listen: **Sofort Ersatzmodus**, **Standardlicht (kein Ambilight)** und **Licht aus**. |
 
-| Verhalten und Home Assistant | App-Auswahl |
+| Standardlicht und Pause | Verhalten |
 |---|---|
-| ![Verhalten](docs/screenshots/08_einstellungen_verhalten_ha.png) | ![App-Auswahl](docs/screenshots/12_dialog_app_profil.png) |
-| **Bei TV-Standby** und **Beim Stoppen**: vorherigen Zustand wiederherstellen, Licht aus oder unverändert lassen. Autostart, MQTT-Discovery, Prefix und eigenes Topic. | Alle installierten TV-Apps zum Ankreuzen. Netflix, Prime Video, Disney+, Apple TV und DAZN sind für „Sofort Ersatzmodus“ vorausgewählt. |
+| ![Standardlicht und Pause](docs/screenshots/14_einstellungen_standard_pause.png) | ![Verhalten](docs/screenshots/08_einstellungen_verhalten_ha.png) |
+| **Standardlicht:** Farbe links/rechts und Helligkeit. **Wiedergabe und Pause:** Status der Pause-Erkennung, **Bei Pause** (Pausenlicht, Standardlicht oder Ambilight weiter), Farbe und Helligkeit des Pausenlichts. | **Beim Einschalten des TV** (Standardlicht bis zur Wiedergabe oder sofort Ambilight), **Bei TV-Standby** und **Beim Stoppen** (Licht aus, vorheriger Zustand, Standardlicht oder unverändert), Autostart. |
+
+| Bei Pause | App-Auswahl |
+|---|---|
+| ![Bei Pause](docs/screenshots/15_dialog_pause.png) | ![App-Auswahl](docs/screenshots/12_dialog_app_profil.png) |
+| Was beim Pausieren passiert. | Alle installierten TV-Apps zum Ankreuzen. Netflix, Prime Video, Disney+, Apple TV und DAZN sind für „Sofort Ersatzmodus“ vorausgewählt. |
 
 Alle Änderungen gelten sofort, auch während das Ambilight läuft. Geänderte Broker- oder Lampendaten bauen die Verbindung automatisch neu auf.
 
@@ -106,9 +123,27 @@ Streaming-Apps mit Kopierschutz (DRM) geben Android bei der Bildschirmaufnahme n
 
 Sobald wieder ein echtes Bild kommt bzw. die App gewechselt wird, läuft das Ambilight normal weiter.
 
+### Einschalten, Ausschalten und Pause
+
+So läuft ein typischer Fernsehabend mit den Standardeinstellungen:
+
+| Moment | Lampen |
+|---|---|
+| TV einschalten | **Standardlicht** (z. B. Warmweiß, Helligkeit 150) |
+| Startseite, Menüs, App-Auswahl | bleibt Standardlicht |
+| Film startet (Plex, YouTube, …) | **Ambilight** |
+| Netflix & Co starten | **Ersatzfarben** (App-Profil) |
+| Pause (länger als 1 s) | **Pausenlicht** (z. B. hell warmweiß) |
+| Weiterschauen | sofort zurück zu Ambilight bzw. Ersatzfarben |
+| TV ausschalten | **Licht aus** |
+
+Apps ohne Mediensitzung (z. B. Live-TV) beenden das Standardlicht beim Öffnen sofort, damit nichts hängen bleibt; das braucht die App-Erkennung.
+
+Wiedergabe und Pause erkennt die App über die **Mediensitzungen** von Android. Das ist derselbe Mechanismus, über den Google Assistant oder die Fernbedienung „Pause“ an eine App senden; deshalb funktioniert es auch bei Netflix & Co, obwohl deren Bild geschützt ist. Android gibt diese Information nur an Apps heraus, die als **Benachrichtigungs-Listener** freigegeben sind. Die App nutzt das ausschließlich für den Wiedergabezustand und liest keine Benachrichtigungen. Ohne diese Freigabe startet das Ambilight beim Einschalten direkt, und es gibt kein Pausenlicht.
+
 ### Vorheriges Licht wiederherstellen
 
-Beim Start fragt die App Zigbee2MQTT nach dem aktuellen Zustand beider Lampen (an/aus, Helligkeit, Farbe oder Farbtemperatur) und merkt ihn sich. Bei **TV-Standby**, **Stopp** und für Apps mit dem Profil **Normales Licht** wird genau dieser Zustand wiederhergestellt. Hat Home Assistant die Lampen zwischendurch geändert (Pause oder Profil „Normales Licht“), gilt der neue Zustand als Ausgangspunkt.
+Beim Start fragt die App Zigbee2MQTT nach dem aktuellen Zustand beider Lampen (an/aus, Helligkeit, Farbe oder Farbtemperatur) und merkt ihn sich. Steht **Bei TV-Standby** oder **Beim Stoppen** auf **Vorheriger Zustand**, wird genau dieser Zustand wiederhergestellt. Hat Home Assistant die Lampen zwischendurch geändert (Pause per HA-Schalter), gilt der neue Zustand als Ausgangspunkt.
 
 ## Home Assistant
 
@@ -117,11 +152,13 @@ Mit aktiver MQTT-Discovery erscheint in Home Assistant automatisch das Gerät **
 | Entität | Typ | Funktion |
 |---|---|---|
 | Ambilight | Schalter | Aus = pausiert: Die App sendet nichts mehr, Home Assistant kann die Lampen frei steuern. An = Ambilight läuft weiter. |
-| Ambilight Modus | Sensor | `Aktiv`, `Pausiert (Home Assistant)`, `Geschützter Inhalt`, `Ersatzmodus (App-Profil)`, `Normales Licht (App-Profil)`, `Licht aus (App-Profil)`, `Standby`, `Gestoppt` |
+| Ambilight Modus | Sensor | `Aktiv`, `Standardlicht`, `Pausenlicht`, `Pausiert (Home Assistant)`, `Geschützter Inhalt`, `Ersatzmodus (App-Profil)`, `Standardlicht (App-Profil)`, `Licht aus (App-Profil)`, `Standby`, `Gestoppt` |
 | Aktive App | Sensor | Name der App im Vordergrund, z. B. `Netflix` |
+| Wiedergabe | Sensor | `Spielt`, `Pausiert`, `–` |
 | Verzögerung, Zigbee-Befehle | Sensoren (Diagnose) | Ø-Verzögerung in ms und Zigbee-Befehle pro Sekunde, alle 10 s aktualisiert |
 | Helligkeit maximal/minimal, Updates pro Sekunde, Glättung, Sättigung, Ersatzmodus Helligkeit | Zahlen (Konfiguration) | Schieberegler, wirken sofort |
-| Ersatzmodus, Ersatzfarbe links/rechts, Helligkeitsmodus, Bei TV-Standby, Beim Stoppen | Auswahl (Konfiguration) | Wie in der App |
+| Standardlicht Helligkeit, Pausenlicht Helligkeit | Zahlen (Konfiguration) | Schieberegler, wirken sofort |
+| Ersatzmodus, Ersatzfarbe links/rechts, Helligkeitsmodus, Beim Einschalten, Bei Pause, Standardlicht links/rechts, Pausenlicht Farbe, Bei TV-Standby, Beim Stoppen | Auswahl (Konfiguration) | Wie in der App |
 | Szenenwechsel sofort, App-Erkennung | Schalter (Konfiguration) | Wie in der App |
 
 Ist der TV aus oder die App beendet, werden alle Entitäten als „nicht verfügbar“ angezeigt.
@@ -140,6 +177,20 @@ Beispiele (Entitäts-IDs an deine Installation anpassen):
         entity_id: number.tv_ambilight_helligkeit_maximal
       data:
         value: 120
+
+# Deckenlicht etwas heller, wenn der Film pausiert
+- alias: Deckenlicht bei Pause
+  triggers:
+    - trigger: state
+      entity_id: sensor.tv_ambilight_wiedergabe
+      to: "Pausiert"
+      for: "00:00:02"
+  actions:
+    - action: light.turn_on
+      target:
+        entity_id: light.wohnzimmer_decke
+      data:
+        brightness_pct: 40
 
 # Deckenlicht dimmen, sobald Netflix & Co laufen
 - alias: Deckenlicht dimmen bei Streaming
@@ -179,6 +230,10 @@ adb install -r TV-Ambilight.apk
 
 Ohne ADB funktioniert das Ambilight, du bestätigst dann bei jedem Start den Freigabe-Dialog von Android. Für folgende Extras brauchst du einmalig ADB (vom PC oder per ADB-App vom Handy, Anleitung in [DOKU.md](./DOKU.md#installation-auf-dem-tv)):
 
+- **Pausenlicht und Standardlicht bis zur Wiedergabe** (Wiedergabe/Pause erkennen):
+  ```bash
+  adb shell cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService
+  ```
 - **App-Profile** (Netflix & Co sofort erkennen):
   ```bash
   adb shell appops set io.github.hxcde.ambilight GET_USAGE_STATS allow
@@ -192,7 +247,9 @@ Ohne ADB funktioniert das Ambilight, du bestätigst dann bei jedem Start den Fre
   adb shell appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow
   ```
 
-Ob die App-Erkennung funktioniert, siehst du in den Einstellungen unter **App-Profile → Berechtigung Nutzungsdaten** und auf der Startseite in der Zeile **App:**.
+Ob alles freigegeben ist, siehst du in den Einstellungen (**App-Profile → Berechtigung Nutzungsdaten**, **Wiedergabe und Pause → Pause-Erkennung**) und auf der Startseite in den Zeilen **App:** und **Wiedergabe:**.
+
+Empfohlen für den vollen Komfort (TV an/aus, Pause, Netflix): alle vier Befehle einmal ausführen und in der App **Autostart** einschalten.
 
 ## Einrichtung
 
@@ -202,14 +259,15 @@ Ob die App-Erkennung funktioniert, siehst du in den Einstellungen unter **App-Pr
 4. **Base-Topic:** wie in Z2M (Standard `zigbee2mqtt`). **Lampe links/rechts:** Friendly Names aus der Z2M-Geräteliste.
 5. Zurück → **Verbindung testen**: Links muss rot, rechts blau leuchten.
 6. **Ambilight starten**, bei Bedarf die Bildschirmfreigabe bestätigen.
-7. Ein paar Minuten schauen und die **Statistik** prüfen. Ist die Verzögerung hoch oder wächst sie, die Updates pro Sekunde senken oder die Helligkeit auf **Fest** stellen.
+7. Unter **Standardlicht** und **Wiedergabe und Pause** die Farben und Helligkeiten nach Geschmack einstellen.
+8. Ein paar Minuten schauen und die **Statistik** prüfen. Ist die Verzögerung hoch oder wächst sie, die Updates pro Sekunde senken oder die Helligkeit auf **Fest** stellen.
 
 ## Grenzen
 
 - **DRM-Apps** (Netflix, Prime Video, Disney+, teils YouTube) liefern nur Schwarz, dafür gibt es Ersatzmodus und App-Profile.
 - **HDMI-Eingänge** des TVs laufen am Android-System vorbei und können nicht ausgelesen werden.
 - **Zigbee ist kein Streaming-Protokoll.** Etwa 4–6 Updates pro Sekunde und Lampe sind realistisch (mit Helligkeit „Fest“ etwas mehr); das reicht für flüssiges Stimmungslicht, aber nicht für Blitzeffekte. Das schnellere Hue-Entertainment-Streaming gibt es nur mit Hue Bridge.
-- Auf einem echten TV ist die Version 0.2.0 noch nicht getestet. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
+- Auf einem echten TV ist die Version 0.3.0 noch nicht getestet. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
 
 ## Entwicklung
 

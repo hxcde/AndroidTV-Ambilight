@@ -20,7 +20,7 @@ app/src/main/
     engine/
       AmbilightEngine.kt         Steuerlogik ohne Android: Modi, Senderaster, Szenenwechsel, Ersatzmodus, Snapshot, Statistik
       LightSnapshot.kt           Lampenzustand aus Z2M-Statusmeldung lesen und als Befehl wiederherstellen
-      Types.kt                   Mode, LightAction, AppAction, AppProfiles, EngineStats
+      Types.kt                   Mode, LightAction, AppAction, Playback, PauseAction, WakeAction, LightScene, AppProfiles, EngineStats
     light/
       LightOutput.kt             Bildratenunabhängige Glättung, Szenenwechsel, Helligkeit dynamisch/fest, Z2M-Payload nur bei Änderung
       FixedColor.kt              Feste Farben für den Ersatzmodus (Weißtöne als xy, sonst #RRGGBB)
@@ -31,7 +31,9 @@ app/src/main/
       HaEntities.kt              Per HA steuerbare Einstellungen (number/select/switch) inkl. Wert-Parsing
     service/
       AmbilightService.kt        Vordergrunddienst: Aufnahme, MQTT/HA, Live-Einstellungen, App-Erkennung → Engine
-      ForegroundAppDetector.kt   Vordergrund-App per UsageStatsManager (Berechtigung GET_USAGE_STATS)
+      ForegroundAppDetector.kt   Vordergrund-App per UsageStatsManager (Berechtigung GET_USAGE_STATS), Launcher-Liste
+      MediaWatcher.kt            Wiedergabe/Pause aus den Mediensitzungen (MediaSessionManager)
+      MediaListenerService.kt    Leerer NotificationListenerService, nur als Schlüssel für die Mediensitzungen
       AmbilightState.kt          StateFlow mit Laufzeitstatus und Statistik für die Oberfläche
     ui/
       MainActivity.kt            Startseite: Start/Stopp, Status, Farbvorschau, Verbindungstest
@@ -48,10 +50,10 @@ docs/screenshots/                Erzeugte Screenshots (TV-Auflösung 1920×1080)
 ## Module & Zuständigkeiten
 
 - **capture**: reines Kotlin ohne Android-Abhängigkeiten, als JVM-Test prüfbar. `FrameAnalyzer.analyze()` bekommt RGBA-Bytes inkl. `rowStride`/`pixelStride` aus dem `ImageReader` und liefert lineare Farben je Seite sowie `isBlack`.
-- **engine**: `AmbilightEngine` bekommt Bilder (`onFrame`), Statusmeldungen der Lampen (`onLightState`), Bildschirm an/aus, HA-Pause und die App-Aktion und gibt MQTT-Nachrichten über `EngineOutput.publish` aus. Modus-Priorität: Standby > Pause (HA) > App-Profil > geschützter Inhalt > aktiv. Senderaster pro Lampe `sendIntervalMs`, Szenenwechsel dürfen nach 100 ms raus. Vor dem ersten Senden wird der Lampenzustand per `…/get` gesichert (max. 2 s Wartezeit).
+- **engine**: `AmbilightEngine` bekommt Bilder (`onFrame`), Statusmeldungen der Lampen (`onLightState`), Bildschirm an/aus, HA-Pause, die App-Aktion und den Wiedergabezustand (`setPlayback`) und gibt MQTT-Nachrichten über `EngineOutput.publish` aus. Modus-Priorität: Standby > Pause (HA) > App-Profil Aus/Standardlicht > Pausenlicht (≥ 1 s pausiert) > Standardlicht nach Einschalten bis zur Wiedergabe > App-Profil Ersatzmodus > geschützter Inhalt > aktiv. Feste Szenen (`LightScene`): Standardlicht, Pausenlicht. Senderaster pro Lampe `sendIntervalMs`, Szenenwechsel dürfen nach 100 ms raus. Vor dem ersten Senden wird der Lampenzustand per `…/get` gesichert (max. 2 s Wartezeit).
 - **light**: `LightOutput` pro Lampe. `target()` glättet zeitbasiert (`keep = smoothing^(dt/interval)`), erkennt Szenenwechsel (max. sRGB-Kanaldifferenz > 0,25), erhöht die Sättigung, rechnet in xy um und bildet `max(R,G,B)` auf `brightness_min..max` ab, oder hält sie fest. `payloadFor()` sendet nur geänderte Felder.
 - **mqtt**: `MqttConnection` schreibt nur auf einem Thread. `publishLatest()` behält pro Topic nur den neuesten Payload und zählt ersetzte als `dropped`. Nur QoS 0. Mit TLS werden Zertifikat und Hostname geprüft. `HaEntities` beschreibt die steuerbaren Einstellungen; `HomeAssistant` erzeugt Discovery und Topics.
-- **service**: `AmbilightService` verbindet Android mit der Engine: Aufnahme auf einem `HandlerThread`, Bildschirm-Broadcasts, App-Erkennung (1 s), Statistik (2 s, an HA alle 10 s). Ein `OnSharedPreferenceChangeListener` übernimmt Änderungen live; Verbindungsschlüssel (`AppSettings.CONNECTION_KEYS`) lösen einen MQTT-Neuaufbau aus.
+- **service**: `AmbilightService` verbindet Android mit der Engine: Aufnahme auf einem `HandlerThread`, Bildschirm-Broadcasts, App-Erkennung und Mediensitzungen (`MediaWatcher` über `MediaListenerService`, 1 s bzw. per Callback), Statistik (2 s, an HA alle 10 s). Ein `OnSharedPreferenceChangeListener` übernimmt Änderungen live; Verbindungsschlüssel (`AppSettings.CONNECTION_KEYS`) lösen einen MQTT-Neuaufbau aus.
 - **ui**: Oberfläche für Fernbedienung (D-Pad, Fokusrahmen). Einstellungen über AndroidX Preference, Auswahllisten aus `Options.kt`.
 
 ## Zusammenspiel / Datenfluss
@@ -68,6 +70,7 @@ MediaProjection → VirtualDisplay (160×90, AUTO_MIRROR) → ImageReader (RGBA)
   ← Z2M-Statusmeldung "<base>/<friendly_name>" → onLightState() (Snapshot, Verzögerung)
 
 UsageStatsManager (1 s) → AppProfiles.actionFor(pkg) → engine.setAppAction()
+MediaSessionManager (Callback) → MediaWatcher.state(Vordergrund-App) → engine.setPlayback()
 SharedPreferences-Listener → engine.updateConfig() bzw. MQTT-Neuaufbau
 HA "<app>/config/<id>/set" → SharedPreferences → Listener (wie oben)
 ```

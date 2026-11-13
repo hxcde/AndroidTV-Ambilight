@@ -62,12 +62,34 @@
             app:summary="@string/pref_app_detection_summary" app:title="@string/pref_app_detection" />
         <Preference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="app_permission" app:title="@string/pref_app_permission" />
         <MultiSelectListPreference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="apps_fallback" app:title="@string/pref_apps_fallback" />
-        <MultiSelectListPreference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="apps_restore" app:title="@string/pref_apps_restore" />
+        <MultiSelectListPreference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="apps_standard" app:title="@string/pref_apps_standard" />
         <MultiSelectListPreference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="apps_off" app:title="@string/pref_apps_off" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_standard">
+        <Preference app:iconSpaceReserved="false" app:selectable="false" app:summary="@string/pref_standard_note" />
+        <ListPreference app:defaultValue="warm" app:key="standard_color_left"
+            app:title="@string/pref_standard_color_left" app:useSimpleSummaryProvider="true" />
+        <ListPreference app:defaultValue="warm" app:key="standard_color_right"
+            app:title="@string/pref_standard_color_right" app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference android:max="254" app:defaultValue="150" app:iconSpaceReserved="false" app:key="standard_brightness" app:min="1"
+            app:seekBarIncrement="5" app:showSeekBarValue="true" app:title="@string/pref_standard_brightness" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_pause">
+        <Preference app:iconSpaceReserved="false" app:key="media_permission" app:title="@string/pref_media_permission" />
+        <ListPreference app:defaultValue="PAUSE_LIGHT" app:iconSpaceReserved="false" app:key="pause_action"
+            app:title="@string/pref_pause_action" app:useSimpleSummaryProvider="true" />
+        <ListPreference app:defaultValue="warm" app:key="pause_color"
+            app:title="@string/pref_pause_color" app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference android:max="254" app:defaultValue="230" app:iconSpaceReserved="false" app:key="pause_brightness" app:min="1"
+            app:seekBarIncrement="5" app:showSeekBarValue="true" app:title="@string/pref_pause_brightness" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_behavior">
-        <ListPreference app:defaultValue="RESTORE" app:iconSpaceReserved="false" app:key="standby_action"
+        <ListPreference app:defaultValue="STANDARD_UNTIL_PLAY" app:iconSpaceReserved="false" app:key="wake_action"
+            app:title="@string/pref_wake_action" app:useSimpleSummaryProvider="true" />
+        <ListPreference app:defaultValue="OFF" app:iconSpaceReserved="false" app:key="standby_action"
             app:title="@string/pref_standby_action" app:useSimpleSummaryProvider="true" />
         <ListPreference app:defaultValue="RESTORE" app:iconSpaceReserved="false" app:key="stop_action"
             app:title="@string/pref_stop_action" app:useSimpleSummaryProvider="true" />
