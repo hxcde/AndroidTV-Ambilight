@@ -1,5 +1,6 @@
 package io.github.hxcde.ambilight.ui
 
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
 import androidx.appcompat.app.AppCompatActivity
@@ -75,8 +76,14 @@ class SettingsActivity : AppCompatActivity() {
         private fun fixedColor(listKey: String, customKey: String) {
             val list = findPreference<ListPreference>(listKey) ?: return
             val custom = findPreference<EditTextPreference>(customKey) ?: return
+            fun updateSwatch(choice: String?, hex: String?) {
+                val value = if (choice == FixedColor.CUSTOM) hex else choice
+                list.icon = swatch((FixedColor.parse(value) ?: FixedColor.DEFAULT).previewArgb)
+            }
+            updateSwatch(list.value, custom.text)
             list.setOnPreferenceChangeListener { _, newValue ->
                 custom.isVisible = colorMode && newValue == FixedColor.CUSTOM
+                updateSwatch(newValue as String, custom.text)
                 true
             }
             custom.setOnBindEditTextListener {
@@ -90,8 +97,22 @@ class SettingsActivity : AppCompatActivity() {
             }
             custom.setOnPreferenceChangeListener { _, newValue ->
                 val ok = FixedColor.isValidHex(newValue as String)
-                if (!ok) Toast.makeText(requireContext(), R.string.invalid_hex, Toast.LENGTH_LONG).show()
+                if (ok) updateSwatch(list.value, newValue) else {
+                    Toast.makeText(requireContext(), R.string.invalid_hex, Toast.LENGTH_LONG).show()
+                }
                 ok
+            }
+        }
+
+        /** Kleines Farbfeld als Icon der Farbauswahl. */
+        private fun swatch(argb: Int): GradientDrawable {
+            val d = resources.displayMetrics.density
+            return GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 6 * d
+                setColor(argb)
+                setStroke((1 * d).toInt().coerceAtLeast(1), 0x40FFFFFF)
+                setSize((28 * d).toInt(), (28 * d).toInt())
             }
         }
 

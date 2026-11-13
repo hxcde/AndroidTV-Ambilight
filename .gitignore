@@ -16,3 +16,6 @@ captures/
 *.keystore
 keystore.properties
 .env
+
+# Gebaute APKs
+*.apk
