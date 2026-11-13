@@ -68,6 +68,8 @@ Nach jedem Befehl veröffentlicht Z2M den neuen Zustand auf `<base>/<friendly_na
 | `<app_topic>/config/<id>` | App → HA | aktueller Wert einer Einstellung (retained); bei Lichtern JSON, z. B. `{"state":"ON","color_mode":"rgb","brightness":150,"color":{"r":255,"g":195,"b":122}}` |
 | `<app_topic>/config/<id>/set` | HA → App | neuer Wert; Zahlen werden gerundet und begrenzt, Auswahlen per Anzeigetext, Lichter als JSON mit `color` (r/g/b) und/oder `brightness` |
 | `<app_topic>/command` | HA → App | `STOP` beendet das Ambilight (Button „Ambilight beenden“) |
+| `<app_topic>/external/app` | HA → App | Paketname der App im Vordergrund (z. B. `com.netflix.ninja`), genutzt, wenn der App die Freigabe „App-Erkennung“ fehlt |
+| `<app_topic>/external/playback` | HA → App | Zustand eines Media-Players (`playing`, `paused`, `idle`, `off`, …), genutzt, wenn die Pause-Erkennung fehlt. Ohne eigene Mediensitzungen endet das Standardlicht nach dem Einschalten spätestens 10 s nach dem Öffnen einer App ohne Wiedergabe. |
 | `<app_topic>/live` | App → HA | höchstens alle 2 s bei Änderung: `{"left":"#E0702A","right":"#2A8FE0","left_rgb":[224,112,42],"right_rgb":[42,143,224]}` |
 | `<ha_prefix>/<switch\|sensor\|number\|select\|light\|button>/<node>/<id>/config` | App → HA | Discovery (retained). Ist Discovery aus, werden die Configs mit leerem Payload entfernt. Configs älterer Versionen (z. B. `select/black_color_left`) werden immer entfernt. |
 
@@ -77,6 +79,10 @@ Beispiel ohne Home Assistant:
 ```bash
 mosquitto_pub -h <broker> -u <user> -P <pass> -t tv-ambilight/config/brightness_max/set -m 120
 ```
+
+## Home Assistant statt Freigaben
+
+Fehlen App- oder Pause-Erkennung, übernimmt die App die Werte aus `<app_topic>/external/app` bzw. `<app_topic>/external/playback` (Blueprint „TV-Status übergeben“). Eigene Erkennung hat Vorrang. Quellen in HA: „Android TV Remote“ (App, sofort), „Google Cast“ (Pause, sofort, je nach App), „Android Debug Bridge“ (Pause, Abfrage etwa alle 10 s). Der Skript-Blueprint „Freigaben setzen“ führt über `androidtv.adb_command` dieselben Befehle aus wie unter „Installation auf dem TV“.
 
 ## Start und Stopp von außen
 
@@ -209,6 +215,8 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
 | „Wiedergabe: Pause-Erkennung nicht freigegeben“ | Benachrichtigungs-Listener nicht freigegeben | `cmd notification allow_listener …` per ADB (Installation, Schritt 6) |
 | Kein Pausenlicht, obwohl freigegeben | App meldet keine Mediensitzung oder Pause dauerte < 1 s | Startseite zeigt „Wiedergabe: …“; bleibt sie bei „–“, unterstützt die App das nicht |
 | Nach dem Einschalten bleibt Standardlicht | Keine Wiedergabe erkannt | Wiedergabe starten genügt. Apps ohne Mediensitzung (z. B. Live-TV) beenden das Standardlicht beim Öffnen automatisch, sofern die App-Erkennung freigegeben ist. Sonst „Beim Einschalten“ auf „Sofort Ambilight“ stellen. |
+| „App: … (über Home Assistant)“ erscheint nicht | Blueprint sendet nicht oder anderes Topic | In HA unter MQTT „Paket veröffentlichen/abonnieren“ `tv-ambilight/external/#` beobachten; Topic im Blueprint wie in der App |
+| Pausenlicht kommt über HA nicht | Cast-Player meldet für diese App keinen Status | In HA prüfen, ob der Cast-Media-Player beim Abspielen „Wiedergabe“ zeigt; sonst ADB-Integration oder Freigabe in der App |
 | Start aus Home Assistant passiert nichts | Android-TV-Remote-Integration öffnet den Link nicht, oder Dialog am TV wartet | Am TV nachsehen, ob „Jetzt starten“ angezeigt wird; `PROJECT_MEDIA` freigeben. Test per ADB: `am start -a android.intent.action.VIEW -d tvambilight://start` |
 | Alte Entitäten (z. B. „Ersatzfarbe links“ als Auswahl) bleiben in HA | Discovery-Config älterer Version | Wird beim Verbinden automatisch entfernt; sonst Entität in HA löschen |
 | App: „Berechtigung fehlt“ | Nutzungsdatenzugriff nicht erteilt | `GET_USAGE_STATS allow` per ADB (Installation, Schritt 5) |

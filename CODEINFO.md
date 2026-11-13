@@ -29,6 +29,7 @@ app/src/main/
       MqttConnection.kt          Socket/TLS, Reconnect mit Backoff, Keepalive, Coalescing-Publish, Verbindungstest
       HomeAssistant.kt           Topics und Discovery-Payloads (Schalter, Sensoren, Einstellungs-Entitäten)
       HaEntities.kt              Per HA steuerbare Einstellungen (number/select/switch/light) inkl. Wert-Parsing
+      ExternalState.kt           TV-Status aus HA (aktive App, Media-Player-Zustand) parsen
     service/
       AmbilightService.kt        Vordergrunddienst: Aufnahme, MQTT/HA, Live-Einstellungen, App-Erkennung → Engine
       ForegroundAppDetector.kt   Vordergrund-App per UsageStatsManager (Berechtigung GET_USAGE_STATS), Launcher-Liste
@@ -46,7 +47,8 @@ app/src/main/
   res/xml/preferences.xml        Alle Einstellungen (Schlüssel = AppSettings.K_*)
 app/src/test/                    JVM-Unit-Tests (u. a. engine/AmbilightEngineTest), MQTT-Integrationstest (MQTT_IT_PORT), Robolectric/Roborazzi-Screenshots
 docs/screenshots/                Erzeugte Screenshots (TV-Auflösung 1920×1080)
-blueprints/automation/tv_ambilight/  Home-Assistant-Blueprints (mit TV starten, Raumlicht folgt Wiedergabe, abends dimmen)
+blueprints/automation/tv_ambilight/  Home-Assistant-Blueprints (mit TV starten, TV-Status übergeben, Raumlicht folgt Wiedergabe, abends dimmen)
+blueprints/script/tv_ambilight/      Skript-Blueprint „Freigaben setzen“ (androidtv.adb_command)
 .github/workflows/build.yml      CI: Tests, APK-Build, Upload als Artefakt
 .github/workflows/release.yml    Release bei Tag v* oder manuell: APK als Release-Asset TV-Ambilight.apk
 ```
@@ -73,8 +75,8 @@ MediaProjection → VirtualDisplay (160×90, AUTO_MIRROR) → ImageReader (RGBA)
   → Broker → Zigbee2MQTT → Zigbee → Lampe
   ← Z2M-Statusmeldung "<base>/<friendly_name>" → onLightState() (Snapshot, Verzögerung)
 
-UsageStatsManager (1 s) → AppProfiles.actionFor(pkg) → engine.setAppAction()
-MediaSessionManager (Callback) → MediaWatcher.state(Vordergrund-App) → engine.setPlayback()
+UsageStatsManager (1 s) bzw. HA "<app>/external/app" → AppProfiles.actionFor(pkg) → engine.setAppAction()
+MediaSessionManager (Callback) bzw. HA "<app>/external/playback" → engine.setPlayback()
 SharedPreferences-Listener → engine.updateConfig() bzw. MQTT-Neuaufbau
 HA "<app>/config/<id>/set" → SharedPreferences → Listener (wie oben)
 ```

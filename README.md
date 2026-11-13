@@ -44,6 +44,7 @@ flowchart LR
 - **Home Assistant:** Schalter zum Pausieren, Sensoren (Modus, aktive App, Wiedergabe, Verzögerung, Zigbee-Last) und alle wichtigen Einstellungen als steuerbare Entitäten, automatisch per MQTT-Discovery
 - **Home Assistant, erweitert:** Ersatz-, Standard- und Pausenlicht per **Farbrad**, **Live-Farben** der Lampen als Sensoren, **Beenden-Button**, Start aus HA per Android-TV-Remote-Integration, fertige **Blueprints**
 - **Einrichtungsseite:** zeigt, welche optionalen Freigaben fehlen, wofür sie gut sind und wie man sie erteilt
+- **Home Assistant statt ADB:** App- und Pause-Erkennung können auch aus HA kommen (Android TV Remote, Google Cast), Freigaben lassen sich per HA setzen
 - **Einstellungen gelten sofort**, auch während das Ambilight läuft
 - Erkennung von Kino- und 4:3-Balken
 - Verbindungstest auf Knopfdruck: links rot, rechts blau
@@ -192,17 +193,39 @@ script:
 
 `tvambilight://stop` beendet es entsprechend. Ohne die Freigabe „Ohne Freigabe-Dialog starten“ erscheint am TV der Dialog „Jetzt starten“. Alternativ über die Integration „Android Debug Bridge“: `androidtv.adb_command` mit `am start -a android.intent.action.VIEW -d tvambilight://start`.
 
+### Home Assistant statt Freigaben
+
+Fehlen der App die Freigaben für App- oder Pause-Erkennung, kann Home Assistant diese Informationen liefern. Die App nimmt sie per MQTT an (`<app_topic>/external/app` und `<app_topic>/external/playback`) und zeigt auf der Startseite „(über Home Assistant)“. Hat die App eine eigene Freigabe, nutzt sie die eigene Erkennung, weil die schneller und genauer ist.
+
+| Was | HA-Integration | Wie gut |
+|---|---|---|
+| Aktive App → App-Profile | **Android TV Remote** (ohne ADB, Kopplung per PIN) | Gut: meldet App-Wechsel sofort (Attribut `app_id`) |
+| Spielt/Pausiert → Pausenlicht, Standardlicht bis zur Wiedergabe | **Google Cast** | Sofort, aber nur bei Apps, die ihren Status melden (am eigenen TV prüfen) |
+| | **Android Debug Bridge** | Zuverlässig, aber nur etwa alle 10 s, fürs Pausenlicht eher träge |
+| TV an/aus | – | Erkennt die App selbst, ohne Freigabe |
+| Start nach Neustart | **Android TV Remote** | Blueprint „Mit dem Fernseher starten“ |
+| Ohne „Jetzt starten“-Dialog | – | Nicht ersetzbar: Android verlangt Bestätigung am TV oder `PROJECT_MEDIA`. Die HA-Integration **Android Debug Bridge** kann die Freigabe aber selbst setzen (Skript-Blueprint unten). |
+
+So geht es:
+1. In HA die Integration **Android TV Remote** einrichten, für Pause zusätzlich **Google Cast** (findet den TV meist automatisch) oder **Android Debug Bridge**.
+2. Blueprint **TV-Status übergeben** importieren und eine Automation daraus anlegen.
+3. Auf der Startseite der App erscheinen „App: … (über Home Assistant)“ und „Wiedergabe: … (über Home Assistant)“; die Einrichtungsseite zeigt diese Freigaben als „Über Home Assistant“ erledigt.
+
+Wer die Integration **Android Debug Bridge** in HA nutzt, kann mit dem Skript-Blueprint **Freigaben setzen** einmalig alle vier Freigaben direkt setzen, ohne PC. Dann braucht es die Übergabe aus HA nicht mehr.
+
 ### Blueprints
 
 Fertige Automationen, mit einem Klick in Home Assistant importierbar:
 
 | Blueprint | Was er tut | Import |
 |---|---|---|
+| **TV-Status übergeben** | Schickt aktive App und Spielt/Pausiert aus HA an die App; ersetzt App- und Pause-Erkennung ohne ADB. | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Ftv_ambilight%2Ftv_status_uebergeben.yaml) |
+| **Freigaben setzen** (Skript) | Setzt alle vier Freigaben über die HA-Integration „Android Debug Bridge“, ohne PC. | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fscript%2Ftv_ambilight%2Ffreigaben_setzen.yaml) |
 | **Mit dem Fernseher starten** | Startet das Ambilight, sobald der TV eingeschaltet wird und es nicht schon läuft, z. B. nach einem Neustart. Braucht die Android-TV-Remote-Integration. | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Ftv_ambilight%2Fmit_tv_starten.yaml) |
 | **Raumlicht folgt der Wiedergabe** | Dimmt das Raumlicht beim Abspielen und macht es bei Pause heller (Helligkeiten, Verzögerung, Übergang einstellbar). | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Ftv_ambilight%2Fraumlicht_folgt_wiedergabe.yaml) |
 | **Abends dimmen** | Begrenzt die maximale Ambilight-Helligkeit abends und hebt sie morgens wieder an. Greift auch, wenn das Ambilight erst abends gestartet wird. | [![Importieren](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fhxcde%2FAndroidTV-Ambilight%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Ftv_ambilight%2Fabends_dimmen.yaml) |
 
-Die Dateien liegen unter [`blueprints/automation/tv_ambilight/`](blueprints/automation/tv_ambilight/).
+Die Dateien liegen unter [`blueprints/`](blueprints/).
 
 ### Dashboard-Beispiel
 
@@ -249,13 +272,13 @@ adb install -r TV-Ambilight.apk
 
 Nein. Sideloaden reicht, und das Ambilight läuft. ADB (oder die passende TV-Einstellung) braucht es nur für Komfortfunktionen:
 
-| Funktion | Ohne ADB | Freigabe |
-|---|---|---|
-| Ambilight, Ersatzmodus bei Schwarzbild, Home Assistant, Statistik, Licht aus bei Standby | ✅ Bei jedem Start „Jetzt starten“ bestätigen | – |
-| Ohne Bestätigung starten; Start aus Home Assistant ohne Dialog | ❌ | `PROJECT_MEDIA` (nur per ADB) |
-| Pausenlicht, Standardlicht bis zur Wiedergabe | ❌ | Pause-Erkennung (Benachrichtigungszugriff) |
-| App-Profile (Netflix sofort Ersatzfarben) | ❌ (nach 2 s Schwarzbild trotzdem Ersatzmodus) | App-Erkennung (Nutzungsdatenzugriff) |
-| Autostart nach Neustart | ❌ (alternativ: Blueprint „Mit dem Fernseher starten“) | Über anderen Apps einblenden |
+| Funktion | Ohne ADB | Freigabe in der App | Oder über Home Assistant |
+|---|---|---|---|
+| Ambilight, Ersatzmodus bei Schwarzbild, HA-Steuerung, Statistik, TV an/aus | ✅ Bei jedem Start „Jetzt starten“ bestätigen | – | – |
+| Ohne Bestätigung starten | ❌ | `PROJECT_MEDIA` (nur per ADB) | Skript-Blueprint „Freigaben setzen“ (setzt sie per HA-ADB-Integration) |
+| Pausenlicht, Standardlicht bis zur Wiedergabe | ❌ | Pause-Erkennung | ✅ Blueprint „TV-Status übergeben“ mit Google Cast oder Android Debug Bridge |
+| App-Profile (Netflix sofort Ersatzfarben) | ❌ (nach 2 s Schwarzbild trotzdem Ersatzmodus) | App-Erkennung | ✅ Blueprint „TV-Status übergeben“ mit Android TV Remote |
+| Autostart nach Neustart | ❌ | Über anderen Apps einblenden | ✅ Blueprint „Mit dem Fernseher starten“ |
 
 Manche TCL-Firmwares zeigen den Freigabe-Dialog gar nicht an; dann ist `PROJECT_MEDIA` per ADB Pflicht. Drei der vier Freigaben bieten manche TVs auch direkt in den Einstellungen an (Apps → Spezieller App-Zugriff). Die Seite **Einrichtung** in der App zeigt, was fehlt, und öffnet die passende TV-Einstellung, sofern vorhanden.
 
@@ -268,7 +291,7 @@ adb connect <TV-IP>:5555
 adb shell "appops set io.github.hxcde.ambilight PROJECT_MEDIA allow; cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService; appops set io.github.hxcde.ambilight GET_USAGE_STATS allow; appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow"
 ```
 
-Danach in der App **Autostart** einschalten. Ohne PC geht das auch mit einer ADB-App auf dem Handy (z. B. „Bugjaeger“).
+Danach in der App **Autostart** einschalten. Ohne PC geht das auch mit einer ADB-App auf dem Handy (z. B. „Bugjaeger“) oder direkt aus Home Assistant (siehe [Home Assistant statt Freigaben](#home-assistant-statt-freigaben)).
 
 ## Einrichtung
 
@@ -286,7 +309,7 @@ Danach in der App **Autostart** einschalten. Ohne PC geht das auch mit einer ADB
 - **DRM-Apps** (Netflix, Prime Video, Disney+, teils YouTube) liefern nur Schwarz, dafür gibt es Ersatzmodus und App-Profile.
 - **HDMI-Eingänge** des TVs laufen am Android-System vorbei und können nicht ausgelesen werden.
 - **Zigbee ist kein Streaming-Protokoll.** Etwa 4–6 Updates pro Sekunde und Lampe sind realistisch (mit Helligkeit „Fest“ etwas mehr); das reicht für flüssiges Stimmungslicht, aber nicht für Blitzeffekte. Das schnellere Hue-Entertainment-Streaming gibt es nur mit Hue Bridge.
-- Auf einem echten TV ist die Version 0.4.0 noch nicht getestet; ebenso der Start per Android-TV-Remote-Integration (`tvambilight://start`) und die Blueprints. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
+- Auf einem echten TV ist die Version 0.5.0 noch nicht getestet; ebenso der Start per Android-TV-Remote-Integration (`tvambilight://start`), die Blueprints und welche Apps ihren Pausenstatus über Google Cast melden. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
 
 ## Entwicklung
 

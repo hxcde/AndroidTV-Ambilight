@@ -22,6 +22,9 @@ data class Status(
     val playback: Playback = Playback.NONE,
     /** false = Freigabe für Mediensitzungen fehlt (keine Pause-Erkennung). */
     val mediaDetection: Boolean = false,
+    /** App bzw. Wiedergabe kommen von Home Assistant statt aus der eigenen Erkennung. */
+    val appFromHa: Boolean = false,
+    val playbackFromHa: Boolean = false,
 )
 
 /** Laufzeitstatus des Dienstes für die Oberfläche (gleicher Prozess). */

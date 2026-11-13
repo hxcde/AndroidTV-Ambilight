@@ -1,0 +1,76 @@
+blueprint:
+  name: TV Ambilight – TV-Status übergeben
+  description: >-
+    Schickt die aktive App und den Wiedergabezustand aus Home Assistant an die
+    Ambilight-App. Ersetzt die Freigaben „App-Erkennung“ und „Pause-Erkennung“,
+    wenn sie in der App fehlen (eigene Erkennung hat Vorrang, weil schneller).
+
+    App: Media-Player der Integration „Android TV Remote“ (Attribut app_id).
+    Wiedergabe: ein Media-Player, der Spielt/Pausiert meldet, z. B. von
+    „Google Cast“ (sofort, aber nur bei Apps, die es melden) oder
+    „Android Debug Bridge“ (zuverlässig, aber nur etwa alle 10 s).
+    Ohne eine solche Quelle denselben Player wie bei „App“ wählen, dann wird
+    nur die App übergeben.
+  domain: automation
+  source_url: https://github.com/hxcde/AndroidTV-Ambilight/blob/HEAD/blueprints/automation/tv_ambilight/tv_status_uebergeben.yaml
+  input:
+    app_player:
+      name: Fernseher (Android TV Remote)
+      description: Media-Player der Integration „Android TV Remote“.
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+    playback_player:
+      name: Wiedergabe-Quelle
+      description: Media-Player mit Spielt/Pausiert (Google Cast oder Android Debug Bridge). Ohne Quelle denselben Player wie oben wählen.
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+    ambilight_mode:
+      name: Ambilight-Modus
+      description: Sensor „Ambilight Modus“ des Geräts „TV Ambilight“ (zum erneuten Senden nach dem Start).
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+    app_topic:
+      name: MQTT-Topic der App
+      description: Wie in der App unter Home Assistant → „Topic dieser App“.
+      default: tv-ambilight
+      selector:
+        text: {}
+
+mode: queued
+max_exceeded: silent
+
+variables:
+  app_player: !input app_player
+  playback_player: !input playback_player
+  app_topic: !input app_topic
+
+triggers:
+  - trigger: state
+    entity_id: !input app_player
+    attribute: app_id
+  - trigger: state
+    entity_id: !input playback_player
+  # Ambilight wurde (neu) gestartet: aktuellen Stand sofort senden
+  - trigger: state
+    entity_id: !input ambilight_mode
+    from: unavailable
+
+actions:
+  - action: mqtt.publish
+    data:
+      topic: "{{ app_topic }}/external/app"
+      payload: "{{ state_attr(app_player, 'app_id') or '' }}"
+  - if:
+      - condition: template
+        value_template: "{{ playback_player != app_player }}"
+    then:
+      - action: mqtt.publish
+        data:
+          topic: "{{ app_topic }}/external/playback"
+          payload: "{{ states(playback_player) }}"

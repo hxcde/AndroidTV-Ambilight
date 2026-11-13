@@ -21,9 +21,10 @@
     <string name="version">Version %1$s</string>
     <string name="status_app">App: %1$s</string>
     <string name="app_unknown">unbekannt</string>
-    <string name="app_detection_no_permission">App-Erkennung: Berechtigung fehlt (siehe README)</string>
+    <string name="app_detection_no_permission">App-Erkennung: aus (Freigabe oder Home Assistant, siehe Einrichtung)</string>
     <string name="status_playback">Wiedergabe: %1$s</string>
-    <string name="media_no_permission">Wiedergabe: Pause-Erkennung nicht freigegeben (siehe README)</string>
+    <string name="via_ha">%1$s (über Home Assistant)</string>
+    <string name="media_no_permission">Wiedergabe: keine Pause-Erkennung (Freigabe oder Home Assistant, siehe Einrichtung)</string>
     <string name="stats_title">Statistik</string>
     <string name="stats_rates">Analyse %1$s Bilder/s · MQTT %2$s/s · Zigbee %3$s Befehle/s</string>
     <string name="stats_latency">Verzögerung Ø %1$s · max %2$s · verworfen %3$d</string>
@@ -41,7 +42,7 @@
 
     <!-- Einrichtung -->
     <string name="setup_title">Einrichtung</string>
-    <string name="setup_intro">Das Ambilight läuft auch ohne diese Freigaben. Sie schalten Komfortfunktionen frei. Erteilen geht, sofern der TV es anbietet, über die TV-Einstellungen, sonst einmalig per ADB vom PC oder einer ADB-App am Handy.</string>
+    <string name="setup_intro">Das Ambilight läuft auch ohne diese Freigaben. Sie schalten Komfortfunktionen frei. Erteilen geht, sofern der TV es anbietet, über die TV-Einstellungen, sonst einmalig per ADB (PC, ADB-App am Handy oder die Home-Assistant-Integration „Android Debug Bridge“). Pause- und App-Erkennung kann auch Home Assistant liefern.</string>
     <string name="setup_all_granted">Alle Freigaben erteilt.</string>
     <plurals name="setup_missing">
         <item quantity="one">%1$d Freigabe fehlt</item>
@@ -52,6 +53,9 @@
     <string name="setup_back">Zurück</string>
     <string name="perm_granted">✓ Erteilt</string>
     <string name="perm_missing">Fehlt</string>
+    <string name="perm_via_ha">✓ Über Home Assistant</string>
+    <string name="perm_ha_hint">Alternative ohne ADB: Blueprint „TV-Status übergeben“ in Home Assistant (siehe README).</string>
+    <string name="perm_ha_hint_start">Alternative ohne ADB: Blueprint „Mit dem Fernseher starten“ in Home Assistant (siehe README).</string>
     <string name="perm_open">TV-Einstellung öffnen</string>
     <string name="perm_adb">ADB: adb shell %1$s</string>
     <string name="perm_settings_missing">Diese Einstellung gibt es am TV nicht, bitte per ADB freigeben.</string>

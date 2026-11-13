@@ -120,7 +120,7 @@ class ScreenshotTest {
             it.copy(
                 mode = Mode.PAUSE_LIGHT, mqttConnected = true, leftColor = 0xFFFFC37A.toInt(), rightColor = 0xFFFFC37A.toInt(),
                 stats = stats.copy(messagesPerSec = 0f, zigbeePerSec = 0f), appDetection = true, activeApp = "Netflix",
-                mediaDetection = true, playback = Playback.PAUSED,
+                mediaDetection = true, playback = Playback.PAUSED, appFromHa = true, playbackFromHa = true,
             )
         }
         main("13_start_pausenlicht.png")
@@ -128,6 +128,7 @@ class ScreenshotTest {
 
     @Test
     fun einrichtung() {
+        AmbilightState.update { it.copy(mode = Mode.ACTIVE, mediaDetection = true, playbackFromHa = true) }
         ActivityScenario.launch(SetupActivity::class.java).use {
             idle()
             onView(isRoot()).captureRoboImage("$dir/16_einrichtung.png")

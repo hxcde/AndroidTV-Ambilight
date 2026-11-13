@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import io.github.hxcde.ambilight.R
+import io.github.hxcde.ambilight.service.AmbilightState
 
 /** Einrichtung: zeigt, welche optionalen Freigaben fehlen, wofür sie gut sind und wie man sie erteilt. */
 class SetupActivity : AppCompatActivity() {
@@ -26,6 +27,7 @@ class SetupActivity : AppCompatActivity() {
 
     private fun render() {
         val items = Permissions.all(this)
+        val status = AmbilightState.status.value
         val container = findViewById<LinearLayout>(R.id.setup_items)
         container.removeAllViews()
         val inflater = LayoutInflater.from(this)
@@ -33,18 +35,25 @@ class SetupActivity : AppCompatActivity() {
         for (item in items) {
             val v = inflater.inflate(R.layout.item_permission, container, false)
             v.findViewById<TextView>(R.id.perm_title).setText(item.title)
-            v.findViewById<TextView>(R.id.perm_desc).setText(item.description)
+            val viaHa = !item.granted && Permissions.coveredByHa(item, status)
+            val done = item.granted || viaHa
+            val hint = Permissions.haHint(item)
+            v.findViewById<TextView>(R.id.perm_desc).text = if (!done && hint != null) {
+                getString(item.description) + "\n" + getString(hint)
+            } else {
+                getString(item.description)
+            }
             v.findViewById<TextView>(R.id.perm_status).apply {
-                setText(if (item.granted) R.string.perm_granted else R.string.perm_missing)
-                setTextColor(getColor(if (item.granted) R.color.ok else R.color.warn))
+                setText(if (item.granted) R.string.perm_granted else if (viaHa) R.string.perm_via_ha else R.string.perm_missing)
+                setTextColor(getColor(if (done) R.color.ok else R.color.warn))
             }
             v.findViewById<TextView>(R.id.perm_adb).apply {
                 text = getString(R.string.perm_adb, item.adb)
-                visibility = if (item.granted) View.GONE else View.VISIBLE
+                visibility = if (done) View.GONE else View.VISIBLE
             }
             v.findViewById<Button>(R.id.perm_open).apply {
                 val intent = item.settingsIntent
-                visibility = if (!item.granted && intent != null) View.VISIBLE else View.GONE
+                visibility = if (!done && intent != null) View.VISIBLE else View.GONE
                 setOnClickListener {
                     try {
                         startActivity(intent)
@@ -56,7 +65,7 @@ class SetupActivity : AppCompatActivity() {
             }
             container.addView(v)
         }
-        val missing = items.count { !it.granted }
+        val missing = items.count { !it.granted && !Permissions.coveredByHa(it, status) }
         findViewById<TextView>(R.id.setup_summary).text = if (missing == 0) {
             getString(R.string.setup_all_granted)
         } else {

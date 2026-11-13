@@ -93,10 +93,15 @@ class MainActivity : AppCompatActivity() {
         appText.text = if (s.appDetection == false) {
             getString(R.string.app_detection_no_permission)
         } else {
-            getString(R.string.status_app, s.activeApp ?: getString(R.string.app_unknown))
+            val app = s.activeApp ?: getString(R.string.app_unknown)
+            getString(R.string.status_app, if (s.appFromHa) getString(R.string.via_ha, app) else app)
         }
         playbackText.visibility = if (running) android.view.View.VISIBLE else android.view.View.GONE
-        playbackText.text = if (s.mediaDetection) getString(R.string.status_playback, s.playback.label) else getString(R.string.media_no_permission)
+        playbackText.text = when {
+            !s.mediaDetection -> getString(R.string.media_no_permission)
+            s.playbackFromHa -> getString(R.string.status_playback, getString(R.string.via_ha, s.playback.label))
+            else -> getString(R.string.status_playback, s.playback.label)
+        }
         statsBox.visibility = if (running) android.view.View.VISIBLE else android.view.View.GONE
         statsText.text = s.stats?.let { st ->
             val ms = { v: Int? -> v?.let { getString(R.string.ms, it) } ?: "–" }

@@ -19,6 +19,9 @@ class HomeAssistant(private val appTopic: String, private val prefix: String, pr
     val commandTopic = "$appTopic/command"
     /** Aktuelle Lampenfarben (JSON, gedrosselt). */
     val liveTopic = "$appTopic/live"
+    /** TV-Status aus Home Assistant (wenn der App eigene Freigaben fehlen). */
+    val externalAppTopic = "$appTopic/external/app"
+    val externalPlaybackTopic = "$appTopic/external/playback"
     val birthTopic = "$prefix/status"
 
     private val nodeId = appTopic.replace(Regex("[^A-Za-z0-9_-]"), "_")

@@ -76,6 +76,8 @@ class MediaWatcher(
         }
     }
 
+    val isStarted: Boolean get() = started
+
     /** Hat diese App gerade eine Mediensitzung? */
     fun hasSession(pkg: String): Boolean = started && controllers.any { it.packageName == pkg }
 

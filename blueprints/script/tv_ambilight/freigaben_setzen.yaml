@@ -1,0 +1,32 @@
+blueprint:
+  name: TV Ambilight – Freigaben per Home Assistant setzen
+  description: >-
+    Setzt alle optionalen Freigaben der Ambilight-App (ohne Freigabe-Dialog
+    starten, Pause-Erkennung, App-Erkennung, Autostart) über die Integration
+    „Android Debug Bridge“, ganz ohne PC. Einmal ausführen genügt; danach in
+    der App „Autostart“ einschalten. Voraussetzung: Netzwerk-Debugging am TV
+    ist aktiv und die Verbindung von Home Assistant wurde am TV bestätigt.
+  domain: script
+  source_url: https://github.com/hxcde/AndroidTV-Ambilight/blob/HEAD/blueprints/script/tv_ambilight/freigaben_setzen.yaml
+  input:
+    adb_player:
+      name: Fernseher (Android Debug Bridge)
+      description: Media-Player der Integration „Android Debug Bridge“.
+      selector:
+        entity:
+          filter:
+            - integration: androidtv
+              domain: media_player
+
+mode: single
+
+sequence:
+  - action: androidtv.adb_command
+    target:
+      entity_id: !input adb_player
+    data:
+      command: >-
+        appops set io.github.hxcde.ambilight PROJECT_MEDIA allow;
+        cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService;
+        appops set io.github.hxcde.ambilight GET_USAGE_STATS allow;
+        appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow

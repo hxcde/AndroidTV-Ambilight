@@ -50,6 +50,7 @@ import io.github.hxcde.ambilight.mqtt.HaLight
 import io.github.hxcde.ambilight.mqtt.HaNumber
 import io.github.hxcde.ambilight.mqtt.HaSelect
 import io.github.hxcde.ambilight.mqtt.HaSwitch
+import io.github.hxcde.ambilight.mqtt.ExternalState
 import io.github.hxcde.ambilight.mqtt.HomeAssistant
 import io.github.hxcde.ambilight.mqtt.MqttConnection
 import io.github.hxcde.ambilight.mqtt.MqttListener
@@ -95,6 +96,13 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
     private var currentApp: String? = null
     private var mediaAvailable = false
     private var playback = Playback.NONE
+
+    // TV-Status aus Home Assistant (Fallback ohne eigene Freigaben)
+    private var externalApp: String? = null
+    private var externalAppReceived = false
+    private var externalPlayback = Playback.NONE
+    private var externalPlaybackReceived = false
+    private var foregroundSince = 0L
     private var statsRound = 0
     private var liveLeft = 0
     private var liveRight = 0
@@ -216,7 +224,10 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         ha = h
         val will = MqttPackets.Will(h.statusTopic, "offline".toByteArray(), retain = true)
         mqtt = MqttConnection(settings.mqttConfig(will), mqttListener) { Log.i(TAG, it) }.also {
-            it.start(listOf(h.setTopic, h.birthTopic, h.configSetFilter, h.commandTopic) + e.outputs.map { o -> o.stateTopic })
+            it.start(
+                listOf(h.setTopic, h.birthTopic, h.configSetFilter, h.commandTopic, h.externalAppTopic, h.externalPlaybackTopic) +
+                    e.outputs.map { o -> o.stateTopic },
+            )
         }
         AmbilightState.update { it.copy(mqttConnected = false, mqttError = null) }
     }
@@ -392,42 +403,57 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
             AmbilightState.update { it.copy(appDetection = null, activeApp = null) }
             return
         }
-        if (!appDetector.hasPermission()) {
-            AmbilightState.update { it.copy(appDetection = false, activeApp = null) }
+        // Eigene Erkennung bevorzugt (schneller), sonst App aus Home Assistant
+        val fromHa = !appDetector.hasPermission()
+        if (fromHa && !externalAppReceived) {
+            AmbilightState.update { it.copy(appDetection = false, activeApp = null, appFromHa = false) }
             return
         }
-        val pkg = appDetector.poll()
+        val pkg = if (fromHa) externalApp else appDetector.poll()
         if (pkg == currentApp) {
-            AmbilightState.update { it.copy(appDetection = true) }
+            AmbilightState.update { it.copy(appDetection = true, appFromHa = fromHa) }
             return
         }
         currentApp = pkg
+        foregroundSince = SystemClock.elapsedRealtime()
         val label = appDetector.label(pkg)
-        Log.i(TAG, "App im Vordergrund: $pkg")
+        Log.i(TAG, "App im Vordergrund: $pkg" + if (fromHa) " (Home Assistant)" else "")
         engine?.setAppAction(profiles.actionFor(pkg), SystemClock.elapsedRealtime())
-        AmbilightState.update { it.copy(appDetection = true, activeApp = label) }
+        AmbilightState.update { it.copy(appDetection = true, activeApp = label, appFromHa = fromHa) }
         ha?.let { mqtt?.publish(it.activeAppTopic, label ?: "", retain = true) }
     }
 
     // ---------------------------------------------------------------- Wiedergabe / Pause
 
     private fun pollMedia() {
-        val available = mediaWatcher.ensureStarted()
+        val internal = mediaWatcher.ensureStarted()
+        val available = internal || externalPlaybackReceived
         if (available != mediaAvailable) {
             mediaAvailable = available
             engine?.setMediaAvailable(available, SystemClock.elapsedRealtime())
-            AmbilightState.update { it.copy(mediaDetection = available) }
         }
+        AmbilightState.update { it.copy(mediaDetection = available, playbackFromHa = !internal && externalPlaybackReceived) }
         updatePlayback()
     }
 
     private fun updatePlayback() {
-        val fg = if (settings.appDetection && appDetector.hasPermission()) currentApp else null
-        // App ohne Mediensitzung (z. B. Live-TV) geöffnet: nicht auf Wiedergabe warten, Ambilight sofort
-        if (fg != null && fg != packageName && fg !in appDetector.launchers && !mediaWatcher.hasSession(fg)) {
-            engine?.endWakeHold(SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        val appKnown = settings.appDetection && (appDetector.hasPermission() || externalAppReceived)
+        val fg = if (appKnown) currentApp else null
+        val otherApp = fg != null && fg != packageName && fg !in appDetector.launchers
+        val p = if (mediaWatcher.isStarted) {
+            // App ohne Mediensitzung (z. B. Live-TV) geöffnet: nicht auf Wiedergabe warten, Ambilight sofort
+            if (otherApp && !mediaWatcher.hasSession(fg!!)) engine?.endWakeHold(now)
+            mediaWatcher.state(fg)
+        } else if (externalPlaybackReceived) {
+            // Home Assistant kennt keine Sitzungen: nach 10 s in einer App ohne Wiedergabe Ambilight starten
+            if (otherApp && externalPlayback != Playback.PLAYING && now - foregroundSince > EXTERNAL_WAKE_TIMEOUT_MS) {
+                engine?.endWakeHold(now)
+            }
+            externalPlayback
+        } else {
+            Playback.NONE
         }
-        val p = mediaWatcher.state(fg)
         if (p == playback) return
         playback = p
         Log.i(TAG, "Wiedergabe: ${p.label}")
@@ -534,6 +560,17 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
                 "OFF" -> setHaPaused(true)
             }
             topic == h.birthTopic -> if (payload == "online") publishAll()
+            topic == h.externalAppTopic -> {
+                externalAppReceived = true
+                externalApp = ExternalState.parseApp(payload)
+                pollForegroundApp()
+                updatePlayback()
+            }
+            topic == h.externalPlaybackTopic -> {
+                externalPlaybackReceived = true
+                externalPlayback = ExternalState.parsePlayback(payload)
+                pollMedia()
+            }
             topic == h.commandTopic -> if (payload.uppercase() == "STOP") {
                 Log.i(TAG, "Beenden per Home Assistant")
                 stopSelf()
@@ -655,6 +692,7 @@ class AmbilightService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         /** Bildanalyse mit ~15 Bildern/s; gesendet wird nur bei Bedarf (siehe Engine). */
         private const val ANALYSIS_INTERVAL_MS = 66L
         private const val STATS_INTERVAL_MS = 2_000L
+        private const val EXTERNAL_WAKE_TIMEOUT_MS = 10_000L
 
         const val ACTION_START = "io.github.hxcde.ambilight.START"
         const val ACTION_STOP = "io.github.hxcde.ambilight.STOP"
