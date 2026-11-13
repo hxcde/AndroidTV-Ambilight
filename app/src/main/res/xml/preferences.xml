@@ -1,79 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Auswahllisten (entries) werden in SettingsActivity aus Options.kt gesetzt. -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <Preference
-        app:selectable="false"
         app:iconSpaceReserved="false"
+        app:selectable="false"
         app:summary="@string/settings_note" />
 
-    <PreferenceCategory app:title="@string/cat_mqtt" app:iconSpaceReserved="false">
-        <EditTextPreference app:key="mqtt_host" app:title="@string/pref_host" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="mqtt_port" app:title="@string/pref_port" app:defaultValue="1883" app:iconSpaceReserved="false" />
-        <SwitchPreferenceCompat app:key="mqtt_tls" app:title="@string/pref_tls" app:summary="@string/pref_tls_summary"
-            app:defaultValue="false" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="mqtt_user" app:title="@string/pref_user" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="mqtt_password" app:title="@string/pref_password" app:iconSpaceReserved="false" />
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_mqtt">
+        <EditTextPreference app:iconSpaceReserved="false" app:key="mqtt_host" app:title="@string/pref_host" />
+        <EditTextPreference app:defaultValue="1883" app:iconSpaceReserved="false" app:key="mqtt_port" app:title="@string/pref_port" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:iconSpaceReserved="false" app:key="mqtt_tls"
+            app:summary="@string/pref_tls_summary" app:title="@string/pref_tls" />
+        <EditTextPreference app:iconSpaceReserved="false" app:key="mqtt_user" app:title="@string/pref_user" />
+        <EditTextPreference app:iconSpaceReserved="false" app:key="mqtt_password" app:title="@string/pref_password" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="@string/cat_z2m" app:iconSpaceReserved="false">
-        <EditTextPreference app:key="z2m_base_topic" app:title="@string/pref_base_topic" app:defaultValue="zigbee2mqtt" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="light_left" app:title="@string/pref_light_left" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="light_right" app:title="@string/pref_light_right" app:iconSpaceReserved="false" />
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_z2m">
+        <EditTextPreference app:defaultValue="zigbee2mqtt" app:iconSpaceReserved="false" app:key="z2m_base_topic" app:title="@string/pref_base_topic" />
+        <EditTextPreference app:iconSpaceReserved="false" app:key="light_left" app:title="@string/pref_light_left" />
+        <EditTextPreference app:iconSpaceReserved="false" app:key="light_right" app:title="@string/pref_light_right" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="@string/cat_picture" app:iconSpaceReserved="false">
-        <SeekBarPreference app:key="update_rate" app:title="@string/pref_rate" app:summary="@string/pref_rate_summary"
-            app:min="1" android:max="10" app:defaultValue="5" app:showSeekBarValue="true" app:iconSpaceReserved="false"
-           />
-        <SeekBarPreference app:key="transition_ms" app:title="@string/pref_transition" app:summary="@string/pref_transition_summary"
-            app:min="0" android:max="2000" app:seekBarIncrement="50" app:defaultValue="0" app:showSeekBarValue="true"
-            app:iconSpaceReserved="false"/>
-        <SeekBarPreference app:key="zone_width" app:title="@string/pref_zone"
-            app:min="5" android:max="50" app:defaultValue="30" app:showSeekBarValue="true" app:iconSpaceReserved="false"
-           />
-        <SeekBarPreference app:key="smoothing" app:title="@string/pref_smoothing"
-            app:min="0" android:max="90" app:seekBarIncrement="5" app:defaultValue="30" app:showSeekBarValue="true"
-            app:iconSpaceReserved="false"/>
-        <SeekBarPreference app:key="saturation" app:title="@string/pref_saturation"
-            app:min="50" android:max="250" app:seekBarIncrement="5" app:defaultValue="130" app:showSeekBarValue="true"
-            app:iconSpaceReserved="false"/>
-        <SeekBarPreference app:key="brightness_min" app:title="@string/pref_min_brightness"
-            app:min="1" android:max="254" app:seekBarIncrement="5" app:defaultValue="10" app:showSeekBarValue="true"
-            app:iconSpaceReserved="false"/>
-        <SeekBarPreference app:key="brightness_max" app:title="@string/pref_max_brightness"
-            app:min="1" android:max="254" app:seekBarIncrement="5" app:defaultValue="254" app:showSeekBarValue="true"
-            app:iconSpaceReserved="false"/>
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_picture">
+        <SeekBarPreference android:max="10" app:defaultValue="5" app:iconSpaceReserved="false" app:key="update_rate" app:min="1"
+            app:showSeekBarValue="true" app:summary="@string/pref_rate_summary" app:title="@string/pref_rate" />
+        <SwitchPreferenceCompat app:defaultValue="true" app:iconSpaceReserved="false" app:key="scene_cut"
+            app:summary="@string/pref_scene_cut_summary" app:title="@string/pref_scene_cut" />
+        <ListPreference app:defaultValue="DYNAMIC" app:iconSpaceReserved="false" app:key="brightness_mode"
+            app:title="@string/pref_brightness_mode" app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference android:max="2000" app:defaultValue="0" app:iconSpaceReserved="false" app:key="transition_ms" app:min="0"
+            app:seekBarIncrement="50" app:showSeekBarValue="true" app:summary="@string/pref_transition_summary" app:title="@string/pref_transition" />
+        <SeekBarPreference android:max="50" app:defaultValue="30" app:iconSpaceReserved="false" app:key="zone_width" app:min="5"
+            app:showSeekBarValue="true" app:title="@string/pref_zone" />
+        <SeekBarPreference android:max="90" app:defaultValue="30" app:iconSpaceReserved="false" app:key="smoothing" app:min="0"
+            app:seekBarIncrement="5" app:showSeekBarValue="true" app:title="@string/pref_smoothing" />
+        <SeekBarPreference android:max="250" app:defaultValue="130" app:iconSpaceReserved="false" app:key="saturation" app:min="50"
+            app:seekBarIncrement="5" app:showSeekBarValue="true" app:title="@string/pref_saturation" />
+        <SeekBarPreference android:max="254" app:defaultValue="10" app:iconSpaceReserved="false" app:key="brightness_min" app:min="1"
+            app:seekBarIncrement="5" app:showSeekBarValue="true" app:title="@string/pref_min_brightness" />
+        <SeekBarPreference android:max="254" app:defaultValue="254" app:iconSpaceReserved="false" app:key="brightness_max" app:min="1"
+            app:seekBarIncrement="5" app:showSeekBarValue="true" app:title="@string/pref_max_brightness" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="@string/cat_black" app:iconSpaceReserved="false">
-        <ListPreference app:key="black_mode" app:title="@string/pref_black_mode"
-            app:entries="@array/black_mode_entries" app:entryValues="@array/black_mode_values"
-            app:defaultValue="COLOR" app:useSimpleSummaryProvider="true" app:iconSpaceReserved="false" />
-        <ListPreference app:key="black_color_left" app:title="@string/pref_black_color_left"
-            app:entries="@array/fixed_color_entries" app:entryValues="@array/fixed_color_values"
-            app:defaultValue="warm" app:useSimpleSummaryProvider="true" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="black_color_left_custom" app:title="@string/pref_black_custom_left" app:iconSpaceReserved="false" />
-        <ListPreference app:key="black_color_right" app:title="@string/pref_black_color_right"
-            app:entries="@array/fixed_color_entries" app:entryValues="@array/fixed_color_values"
-            app:defaultValue="warm" app:useSimpleSummaryProvider="true" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="black_color_right_custom" app:title="@string/pref_black_custom_right" app:iconSpaceReserved="false" />
-        <SeekBarPreference app:key="black_brightness" app:title="@string/pref_black_brightness"
-            app:min="1" android:max="254" app:seekBarIncrement="5" app:defaultValue="80" app:showSeekBarValue="true"
-            app:iconSpaceReserved="false"/>
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_black">
+        <ListPreference app:defaultValue="COLOR" app:iconSpaceReserved="false" app:key="black_mode"
+            app:title="@string/pref_black_mode" app:useSimpleSummaryProvider="true" />
+        <ListPreference app:defaultValue="warm" app:iconSpaceReserved="false" app:key="black_color_left"
+            app:title="@string/pref_black_color_left" app:useSimpleSummaryProvider="true" />
+        <EditTextPreference app:iconSpaceReserved="false" app:key="black_color_left_custom" app:title="@string/pref_black_custom_left" />
+        <ListPreference app:defaultValue="warm" app:iconSpaceReserved="false" app:key="black_color_right"
+            app:title="@string/pref_black_color_right" app:useSimpleSummaryProvider="true" />
+        <EditTextPreference app:iconSpaceReserved="false" app:key="black_color_right_custom" app:title="@string/pref_black_custom_right" />
+        <SeekBarPreference android:max="254" app:defaultValue="80" app:iconSpaceReserved="false" app:key="black_brightness" app:min="1"
+            app:seekBarIncrement="5" app:showSeekBarValue="true" app:title="@string/pref_black_brightness" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="@string/cat_behavior" app:iconSpaceReserved="false">
-        <SwitchPreferenceCompat app:key="off_on_standby" app:title="@string/pref_off_standby" app:defaultValue="true" app:iconSpaceReserved="false" />
-        <SwitchPreferenceCompat app:key="off_on_stop" app:title="@string/pref_off_stop" app:defaultValue="true" app:iconSpaceReserved="false" />
-        <SwitchPreferenceCompat app:key="autostart" app:title="@string/pref_autostart" app:summary="@string/pref_autostart_summary"
-            app:defaultValue="false" app:iconSpaceReserved="false" />
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_apps">
+        <SwitchPreferenceCompat app:defaultValue="true" app:iconSpaceReserved="false" app:key="app_detection"
+            app:summary="@string/pref_app_detection_summary" app:title="@string/pref_app_detection" />
+        <Preference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="app_permission" app:title="@string/pref_app_permission" />
+        <MultiSelectListPreference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="apps_fallback" app:title="@string/pref_apps_fallback" />
+        <MultiSelectListPreference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="apps_restore" app:title="@string/pref_apps_restore" />
+        <MultiSelectListPreference app:dependency="app_detection" app:iconSpaceReserved="false" app:key="apps_off" app:title="@string/pref_apps_off" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="@string/cat_ha" app:iconSpaceReserved="false">
-        <SwitchPreferenceCompat app:key="ha_discovery" app:title="@string/pref_ha_discovery" app:summary="@string/pref_ha_discovery_summary"
-            app:defaultValue="true" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="ha_prefix" app:title="@string/pref_ha_prefix" app:defaultValue="homeassistant" app:iconSpaceReserved="false" />
-        <EditTextPreference app:key="app_topic" app:title="@string/pref_app_topic" app:defaultValue="tv-ambilight" app:iconSpaceReserved="false" />
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_behavior">
+        <ListPreference app:defaultValue="RESTORE" app:iconSpaceReserved="false" app:key="standby_action"
+            app:title="@string/pref_standby_action" app:useSimpleSummaryProvider="true" />
+        <ListPreference app:defaultValue="RESTORE" app:iconSpaceReserved="false" app:key="stop_action"
+            app:title="@string/pref_stop_action" app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:iconSpaceReserved="false" app:key="autostart"
+            app:summary="@string/pref_autostart_summary" app:title="@string/pref_autostart" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/cat_ha">
+        <SwitchPreferenceCompat app:defaultValue="true" app:iconSpaceReserved="false" app:key="ha_discovery"
+            app:summary="@string/pref_ha_discovery_summary" app:title="@string/pref_ha_discovery" />
+        <EditTextPreference app:defaultValue="homeassistant" app:iconSpaceReserved="false" app:key="ha_prefix" app:title="@string/pref_ha_prefix" />
+        <EditTextPreference app:defaultValue="tv-ambilight" app:iconSpaceReserved="false" app:key="app_topic" app:title="@string/pref_app_topic" />
     </PreferenceCategory>
 </PreferenceScreen>

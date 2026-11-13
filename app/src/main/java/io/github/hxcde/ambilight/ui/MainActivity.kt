@@ -15,7 +15,7 @@ import io.github.hxcde.ambilight.R
 import io.github.hxcde.ambilight.mqtt.MqttConnection
 import io.github.hxcde.ambilight.service.AmbilightService
 import io.github.hxcde.ambilight.service.AmbilightState
-import io.github.hxcde.ambilight.service.Mode
+import io.github.hxcde.ambilight.engine.Mode
 import io.github.hxcde.ambilight.service.Status
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,6 +27,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var modeText: TextView
     private lateinit var mqttText: TextView
     private lateinit var testResult: TextView
+    private lateinit var appText: TextView
+    private lateinit var statsBox: android.view.View
+    private lateinit var statsText: TextView
     private lateinit var swatchLeft: android.view.View
     private lateinit var swatchRight: android.view.View
     private var running = false
@@ -39,6 +42,9 @@ class MainActivity : AppCompatActivity() {
         modeText = findViewById(R.id.text_mode)
         mqttText = findViewById(R.id.text_mqtt)
         testResult = findViewById(R.id.text_test_result)
+        appText = findViewById(R.id.text_app)
+        statsBox = findViewById(R.id.stats_box)
+        statsText = findViewById(R.id.text_stats)
         swatchLeft = findViewById(R.id.swatch_left)
         swatchRight = findViewById(R.id.swatch_right)
         findViewById<TextView>(R.id.text_version).text = getString(R.string.version, BuildConfig.VERSION_NAME)
@@ -73,9 +79,23 @@ class MainActivity : AppCompatActivity() {
             s.mqttError != null -> getString(R.string.status_mqtt, getString(R.string.mqtt_error, s.mqttError))
             else -> getString(R.string.status_mqtt, getString(R.string.mqtt_connecting))
         }
+        appText.visibility = if (running && s.appDetection != null) android.view.View.VISIBLE else android.view.View.GONE
+        appText.text = if (s.appDetection == false) {
+            getString(R.string.app_detection_no_permission)
+        } else {
+            getString(R.string.status_app, s.activeApp ?: getString(R.string.app_unknown))
+        }
+        statsBox.visibility = if (running) android.view.View.VISIBLE else android.view.View.GONE
+        statsText.text = s.stats?.let { st ->
+            val ms = { v: Int? -> v?.let { getString(R.string.ms, it) } ?: "–" }
+            getString(R.string.stats_rates, fmt(st.framesPerSec), fmt(st.messagesPerSec), fmt(st.zigbeePerSec)) + "\n" +
+                getString(R.string.stats_latency, ms(st.latencyAvgMs), ms(st.latencyMaxMs), s.dropped)
+        } ?: getString(R.string.stats_waiting)
         ViewCompat.setBackgroundTintList(swatchLeft, android.content.res.ColorStateList.valueOf(s.leftColor))
         ViewCompat.setBackgroundTintList(swatchRight, android.content.res.ColorStateList.valueOf(s.rightColor))
     }
+
+    private fun fmt(v: Float) = String.format(java.util.Locale.GERMANY, "%.1f", v)
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
 

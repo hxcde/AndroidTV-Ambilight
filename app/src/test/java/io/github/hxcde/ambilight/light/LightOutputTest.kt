@@ -63,8 +63,39 @@ class LightOutputTest {
     }
 
     @Test
+    fun sceneCutJumpsImmediately() {
+        val c = PipelineConfig(smoothing = 0.9f, saturation = 1f)
+        val out = LightOutput("l", "z2m")
+        out.target(floatArrayOf(0f, 0f, 0f), c)
+        assertFalse(out.lastWasCut)
+        assertEquals(254, out.target(floatArrayOf(1f, 1f, 1f), c).brightness)
+        assertTrue(out.lastWasCut)
+    }
+
+    @Test
+    fun smoothingIsIndependentOfFrameRate() {
+        val c = PipelineConfig(smoothing = 0.5f, saturation = 1f, sceneCut = false)
+        val a = LightOutput("a", "z2m")
+        val b = LightOutput("b", "z2m")
+        a.target(floatArrayOf(0f, 0f, 0f), c)
+        b.target(floatArrayOf(0f, 0f, 0f), c)
+        // a: ein Bild nach 200 ms, b: vier Bilder à 50 ms → gleiches Ergebnis
+        val ra = a.target(floatArrayOf(1f, 1f, 1f), c, dtMs = 200, intervalMs = 200)
+        var rb = b.target(floatArrayOf(1f, 1f, 1f), c, dtMs = 50, intervalMs = 200)
+        repeat(3) { rb = b.target(floatArrayOf(1f, 1f, 1f), c, dtMs = 50, intervalMs = 200) }
+        assertEquals(ra.brightness, rb.brightness)
+    }
+
+    @Test
+    fun zigbeeCommandCount() {
+        assertEquals(2, LightOutput.zigbeeCommands("""{"state":"ON","brightness":10,"color":{"x":0.3,"y":0.3},"transition":0.20}"""))
+        assertEquals(1, LightOutput.zigbeeCommands("""{"color":{"x":0.3,"y":0.3},"transition":0.20}"""))
+        assertEquals(1, LightOutput.zigbeeCommands("""{"state":"OFF","transition":1.00}"""))
+    }
+
+    @Test
     fun smoothingMovesGradually() {
-        val c = PipelineConfig(smoothing = 0.5f, saturation = 1f)
+        val c = PipelineConfig(smoothing = 0.5f, saturation = 1f, sceneCut = false)
         val out = LightOutput("l", "z2m")
         out.target(floatArrayOf(0f, 0f, 0f), c)
         val b = out.target(floatArrayOf(1f, 1f, 1f), c).brightness

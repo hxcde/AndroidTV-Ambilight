@@ -33,3 +33,40 @@ class HomeAssistantTest {
         assertEquals("\"a\\\"b\\\\c\\n\"", HomeAssistant.q("a\"b\\c\n"))
     }
 }
+
+class HaEntitiesTest {
+    private val ha = HomeAssistant("tv-ambilight", "homeassistant", "id", "1")
+
+    @Test
+    fun setTopicParsing() {
+        assertEquals("brightness_max", ha.idFromSetTopic("tv-ambilight/config/brightness_max/set"))
+        assertEquals(null, ha.idFromSetTopic("tv-ambilight/config/brightness_max"))
+        assertEquals(null, ha.idFromSetTopic("tv-ambilight/set"))
+    }
+
+    @Test
+    fun numberClampsAndRounds() {
+        val n = HaEntities.byId("brightness_max") as HaNumber
+        assertEquals(254, n.parse("300"))
+        assertEquals(128, n.parse("127.6"))
+        assertEquals(null, n.parse("abc"))
+    }
+
+    @Test
+    fun selectMapsLabelsToValues() {
+        val s = HaEntities.byId("black_color_left") as HaSelect
+        assertEquals("#8000FF", s.parse("Lila"))
+        assertEquals("Lila", s.label("#8000FF"))
+        assertEquals(null, s.parse("Gibt es nicht"))
+    }
+
+    @Test
+    fun discoveryContainsAllEntities() {
+        val d = ha.discovery()
+        assertEquals(5 + HaEntities.ALL.size, d.size)
+        val select = d.first { it.first == "homeassistant/select/tv-ambilight/black_mode/config" }.second
+        assertTrue(select, select.contains("\"options\":[\"Feste Farbe (pro Lampe)\""))
+        val number = d.first { it.first == "homeassistant/number/tv-ambilight/smoothing/config" }.second
+        assertTrue(number, number.contains("\"unit_of_measurement\":\"%\""))
+    }
+}

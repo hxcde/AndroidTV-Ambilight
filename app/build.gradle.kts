@@ -15,8 +15,8 @@ android {
         applicationId = "io.github.hxcde.ambilight"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -72,6 +72,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
     // Screenshots der Oberfläche auf der JVM (./gradlew recordRoborazziDebug)
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.79.0")

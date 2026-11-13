@@ -1,17 +1,25 @@
 package io.github.hxcde.ambilight.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.graphics.drawable.GradientDrawable
+import android.provider.Settings
 import android.os.Bundle
 import android.text.InputType
 import androidx.appcompat.app.AppCompatActivity
 import android.widget.Toast
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
+import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import io.github.hxcde.ambilight.AppSettings
 import io.github.hxcde.ambilight.BlackMode
+import io.github.hxcde.ambilight.Option
+import io.github.hxcde.ambilight.Options
 import io.github.hxcde.ambilight.R
+import io.github.hxcde.ambilight.engine.AppProfiles
+import io.github.hxcde.ambilight.service.ForegroundAppDetector
 import io.github.hxcde.ambilight.light.FixedColor
 
 class SettingsActivity : AppCompatActivity() {
@@ -38,6 +46,18 @@ class SettingsActivity : AppCompatActivity() {
             text(AppSettings.K_HA_PREFIX, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
             text(AppSettings.K_APP_TOPIC, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
 
+            options(AppSettings.K_BLACK_MODE, Options.BLACK_MODE)
+            options(AppSettings.K_BLACK_COLOR_LEFT, Options.FIXED_COLOR)
+            options(AppSettings.K_BLACK_COLOR_RIGHT, Options.FIXED_COLOR)
+            options(AppSettings.K_BRIGHTNESS_MODE, Options.BRIGHTNESS_MODE)
+            options(AppSettings.K_STANDBY_ACTION, Options.LIGHT_ACTION)
+            options(AppSettings.K_STOP_ACTION, Options.LIGHT_ACTION)
+            appLists()
+            findPreference<Preference>(AppSettings.K_APP_PERMISSION)?.setOnPreferenceClickListener {
+                openUsageAccessSettings()
+                true
+            }
+
             fixedColor(AppSettings.K_BLACK_COLOR_LEFT, AppSettings.K_BLACK_COLOR_LEFT_CUSTOM)
             fixedColor(AppSettings.K_BLACK_COLOR_RIGHT, AppSettings.K_BLACK_COLOR_RIGHT_CUSTOM)
             findPreference<ListPreference>(AppSettings.K_BLACK_MODE)?.let { mode ->
@@ -60,6 +80,58 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         private var colorMode = true
+
+        override fun onResume() {
+            super.onResume()
+            findPreference<Preference>(AppSettings.K_APP_PERMISSION)?.setSummary(
+                if (ForegroundAppDetector.hasPermission(requireContext())) R.string.app_permission_ok else R.string.app_permission_missing,
+            )
+        }
+
+        private fun openUsageAccessSettings() {
+            try {
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(requireContext(), R.string.app_permission_settings_missing, Toast.LENGTH_LONG).show()
+            }
+        }
+
+        private fun options(key: String, options: List<Option>) {
+            findPreference<ListPreference>(key)?.apply {
+                entries = options.map { it.label }.toTypedArray()
+                entryValues = options.map { it.value }.toTypedArray()
+            }
+        }
+
+        /** Auswahl der installierten Apps für die drei App-Profile. */
+        private fun appLists() {
+            val ctx = requireContext()
+            val pm = ctx.packageManager
+            val apps = LinkedHashMap<String, String>()
+            for (category in listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)) {
+                val intent = Intent(Intent.ACTION_MAIN).addCategory(category)
+                for (ri in pm.queryIntentActivities(intent, 0)) {
+                    val pkg = ri.activityInfo?.packageName ?: continue
+                    if (pkg != ctx.packageName) apps.putIfAbsent(pkg, ri.loadLabel(pm).toString())
+                }
+            }
+            val sorted = apps.entries.sortedBy { it.value.lowercase() }
+            val prefs = preferenceManager.sharedPreferences
+            for (key in listOf(AppSettings.K_APPS_FALLBACK, AppSettings.K_APPS_RESTORE, AppSettings.K_APPS_OFF)) {
+                val pref = findPreference<MultiSelectListPreference>(key) ?: continue
+                pref.entries = sorted.map { it.value }.toTypedArray()
+                pref.entryValues = sorted.map { it.key }.toTypedArray()
+                if (key == AppSettings.K_APPS_FALLBACK && prefs?.contains(key) == false) pref.values = AppProfiles.DEFAULT_FALLBACK
+                pref.setSummaryProvider { p ->
+                    val selected = (p as MultiSelectListPreference).values.mapNotNull { apps[it] }.sortedBy { it.lowercase() }
+                    when {
+                        apps.isEmpty() -> getString(R.string.apps_not_found)
+                        selected.isEmpty() -> getString(R.string.apps_none)
+                        else -> selected.joinToString(", ")
+                    }
+                }
+            }
+        }
 
         /** Farb- und Helligkeitswahl nur zeigen, wenn der Ersatzmodus „Feste Farbe“ aktiv ist. */
         private fun refreshBlackSection(mode: String?) {

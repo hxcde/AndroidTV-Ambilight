@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
+import io.github.hxcde.ambilight.engine.AppProfiles
+import io.github.hxcde.ambilight.engine.EngineConfig
+import io.github.hxcde.ambilight.engine.LightAction
 import io.github.hxcde.ambilight.light.FixedColor
 import io.github.hxcde.ambilight.light.PipelineConfig
 import io.github.hxcde.ambilight.mqtt.MqttConfig
@@ -42,6 +45,8 @@ class AppSettings(private val prefs: SharedPreferences) {
             saturation = prefs.getInt(K_SATURATION, 130).coerceIn(50, 250) / 100f,
             minBrightness = prefs.getInt(K_MIN_BRIGHTNESS, 10).coerceIn(1, 254),
             maxBrightness = prefs.getInt(K_MAX_BRIGHTNESS, 254).coerceIn(1, 254),
+            fixedBrightness = str(K_BRIGHTNESS_MODE, "DYNAMIC") == "FIXED",
+            sceneCut = prefs.getBoolean(K_SCENE_CUT, true),
         )
 
     val blackMode: BlackMode
@@ -57,9 +62,34 @@ class AppSettings(private val prefs: SharedPreferences) {
     }
     val blackDelayMs: Long get() = 2_000L
 
-    val offOnStandby: Boolean get() = prefs.getBoolean(K_OFF_STANDBY, true)
-    val offOnStop: Boolean get() = prefs.getBoolean(K_OFF_STOP, true)
+    val standbyAction: LightAction get() = lightAction(K_STANDBY_ACTION)
+    val stopAction: LightAction get() = lightAction(K_STOP_ACTION)
     val autostart: Boolean get() = prefs.getBoolean(K_AUTOSTART, false)
+
+    private fun lightAction(key: String): LightAction =
+        runCatching { LightAction.valueOf(str(key, LightAction.RESTORE.name)) }.getOrDefault(LightAction.RESTORE)
+
+    val appDetection: Boolean get() = prefs.getBoolean(K_APP_DETECTION, true)
+    val appProfiles: AppProfiles
+        get() = AppProfiles(
+            fallback = prefs.getStringSet(K_APPS_FALLBACK, AppProfiles.DEFAULT_FALLBACK) ?: emptySet(),
+            restore = prefs.getStringSet(K_APPS_RESTORE, emptySet()) ?: emptySet(),
+            off = prefs.getStringSet(K_APPS_OFF, emptySet()) ?: emptySet(),
+        )
+
+    /** Alle Laufzeit-Einstellungen für die Engine (werden live übernommen). */
+    val engineConfig: EngineConfig
+        get() = EngineConfig(
+            pipeline = pipeline,
+            sendIntervalMs = 1000L / updateRate,
+            transitionSec = transitionSec,
+            blackMode = blackMode,
+            blackBrightness = blackBrightness,
+            blackColorLeft = blackColorLeft,
+            blackColorRight = blackColorRight,
+            blackDelayMs = blackDelayMs,
+            standbyAction = standbyAction,
+        )
 
     val haDiscovery: Boolean get() = prefs.getBoolean(K_HA_DISCOVERY, true)
     val haPrefix: String get() = str(K_HA_PREFIX, "homeassistant").trim('/')
@@ -111,12 +141,25 @@ class AppSettings(private val prefs: SharedPreferences) {
         const val K_BLACK_COLOR_LEFT_CUSTOM = "black_color_left_custom"
         const val K_BLACK_COLOR_RIGHT = "black_color_right"
         const val K_BLACK_COLOR_RIGHT_CUSTOM = "black_color_right_custom"
-        const val K_OFF_STANDBY = "off_on_standby"
-        const val K_OFF_STOP = "off_on_stop"
+        const val K_BRIGHTNESS_MODE = "brightness_mode"
+        const val K_SCENE_CUT = "scene_cut"
+        const val K_STANDBY_ACTION = "standby_action"
+        const val K_STOP_ACTION = "stop_action"
+        const val K_APP_DETECTION = "app_detection"
+        const val K_APPS_FALLBACK = "apps_fallback"
+        const val K_APPS_RESTORE = "apps_restore"
+        const val K_APPS_OFF = "apps_off"
+        const val K_APP_PERMISSION = "app_permission"
         const val K_AUTOSTART = "autostart"
         const val K_HA_DISCOVERY = "ha_discovery"
         const val K_HA_PREFIX = "ha_prefix"
         const val K_APP_TOPIC = "app_topic"
         const val K_CLIENT_ID = "client_id"
+
+        /** Änderungen an diesen Schlüsseln erfordern eine neue MQTT-Verbindung. */
+        val CONNECTION_KEYS = setOf(
+            K_HOST, K_PORT, K_TLS, K_USER, K_PASSWORD, K_BASE_TOPIC, K_LIGHT_LEFT, K_LIGHT_RIGHT,
+            K_HA_PREFIX, K_APP_TOPIC,
+        )
     }
 }

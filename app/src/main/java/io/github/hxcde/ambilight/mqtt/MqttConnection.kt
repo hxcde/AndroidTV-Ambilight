@@ -62,6 +62,9 @@ class MqttConnection(
     @Volatile var isConnected: Boolean = false
         private set
 
+    /** Anzahl Nachrichten, die durch eine neuere ersetzt wurden, bevor sie gesendet werden konnten. */
+    val dropped = java.util.concurrent.atomic.AtomicLong()
+
     @Volatile private var stopped = false
 
     fun start(subscribeTopics: List<String>) {
@@ -78,7 +81,7 @@ class MqttConnection(
     /** Sendet nur den jeweils neuesten Payload pro Topic. Ohne Verbindung wird verworfen. */
     fun publishLatest(topic: String, payload: String, retain: Boolean = false) {
         synchronized(lock) {
-            pendingLatest[topic] = payload.toByteArray(Charsets.UTF_8) to retain
+            if (pendingLatest.put(topic, payload.toByteArray(Charsets.UTF_8) to retain) != null) dropped.incrementAndGet()
             if (drainScheduled) return
             drainScheduled = true
         }

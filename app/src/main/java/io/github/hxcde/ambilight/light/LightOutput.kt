@@ -4,20 +4,27 @@ import io.github.hxcde.ambilight.capture.ColorMath
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /** Einstellungen für die Umrechnung Bildfarbe → Lampenzustand. */
 data class PipelineConfig(
-    /** 0 = keine Glättung, 0.9 = sehr träge. */
+    /** 0 = keine Glättung, 0.9 = sehr träge (Anteil, der pro Sendeintervall vom alten Wert bleibt). */
     val smoothing: Float = 0.3f,
     /** 1.0 = unverändert, 1.5 = 50 % mehr Sättigung. */
     val saturation: Float = 1.3f,
     val minBrightness: Int = 10,
     val maxBrightness: Int = 254,
+    /** true = Helligkeit bleibt auf [maxBrightness], es wird nur noch die Farbe gesendet (halbe Zigbee-Last). */
+    val fixedBrightness: Boolean = false,
+    /** Harter Bildschnitt wird sofort und ohne Überblendung übernommen. */
+    val sceneCut: Boolean = true,
+    /** Ab dieser Änderung (max. Kanal-Differenz in sRGB, 0..1) gilt ein Bild als Szenenwechsel. */
+    val sceneCutThreshold: Float = 0.25f,
     /** Ab dieser xy-Änderung (|dx|+|dy|) wird neu gesendet. */
-    val colorThreshold: Double = 0.004,
+    val colorThreshold: Double = 0.005,
     /** Ab dieser Helligkeitsänderung (0..254) wird neu gesendet. */
-    val brightnessThreshold: Int = 3,
+    val brightnessThreshold: Int = 6,
 )
 
 /** Gewünschter Zustand einer Lampe. */
@@ -35,7 +42,10 @@ data class LightState(val on: Boolean, val x: Double = ColorMath.WHITE_X, val y:
  * damit nur bei echten Änderungen gesendet wird (schont das Zigbee-Netz).
  */
 class LightOutput(val friendlyName: String, baseTopic: String) {
-    val setTopic: String = "${baseTopic.trim('/')}/$friendlyName/set"
+    private val base = baseTopic.trim('/')
+    val setTopic: String = "$base/$friendlyName/set"
+    val getTopic: String = "$base/$friendlyName/get"
+    val stateTopic: String = "$base/$friendlyName"
 
     private var smoothed: FloatArray? = null
     private var lastSent: LightState? = null
@@ -44,21 +54,41 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
     var previewSrgb: FloatArray = FloatArray(3)
         private set
 
-    /** Lineare Zonenfarbe → Ziel-Zustand (mit Glättung und Sättigung). */
-    fun target(linear: FloatArray, cfg: PipelineConfig): LightState {
-        val alpha = 1f - cfg.smoothing.coerceIn(0f, 0.95f)
-        val s = smoothed?.let { prev ->
+    /** true, wenn die letzte Berechnung einen Szenenwechsel erkannt hat. */
+    var lastWasCut: Boolean = false
+        private set
+
+    /**
+     * Lineare Zonenfarbe → Ziel-Zustand (mit Glättung, Szenenwechsel-Erkennung und Sättigung).
+     * @param dtMs Zeit seit dem letzten Bild
+     * @param intervalMs Sendeintervall; die Glättung ist darauf bezogen und damit unabhängig von der Bildrate
+     */
+    fun target(linear: FloatArray, cfg: PipelineConfig, dtMs: Long = 200, intervalMs: Long = 200): LightState {
+        val prev = smoothed
+        lastWasCut = false
+        val s = if (prev == null) {
+            linear.copyOf()
+        } else if (cfg.sceneCut && maxSrgbDiff(prev, linear) > cfg.sceneCutThreshold) {
+            lastWasCut = true
+            linear.copyOf()
+        } else {
+            val keep = cfg.smoothing.coerceIn(0f, 0.95f).toDouble().pow(dtMs.toDouble() / intervalMs.coerceAtLeast(1)).toFloat()
+            val alpha = 1f - keep
             FloatArray(3) { i -> prev[i] + (linear[i] - prev[i]) * alpha }
-        } ?: linear.copyOf()
+        }
         smoothed = s
 
         val srgb = FloatArray(3) { ColorMath.linearToSrgb(s[it]) }
         val boosted = ColorMath.boostSaturation(srgb, cfg.saturation)
         previewSrgb = boosted
-        val v = max(boosted[0], max(boosted[1], boosted[2]))
         val minB = cfg.minBrightness.coerceIn(1, 254)
         val maxB = cfg.maxBrightness.coerceIn(minB, 254)
-        val brightness = (minB + (maxB - minB) * v).roundToInt().coerceIn(minB, maxB)
+        val brightness = if (cfg.fixedBrightness) {
+            maxB
+        } else {
+            val v = max(boosted[0], max(boosted[1], boosted[2]))
+            (minB + (maxB - minB) * v).roundToInt().coerceIn(minB, maxB)
+        }
         val xy = ColorMath.linearRgbToXy(
             ColorMath.srgbToLinear(boosted[0]),
             ColorMath.srgbToLinear(boosted[1]),
@@ -67,9 +97,16 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
         return LightState(true, xy[0], xy[1], brightness)
     }
 
+    private fun maxSrgbDiff(a: FloatArray, b: FloatArray): Float {
+        var d = 0f
+        for (i in 0..2) d = max(d, abs(ColorMath.linearToSrgb(a[i]) - ColorMath.linearToSrgb(b[i])))
+        return d
+    }
+
     /** Setzt die Glättung zurück (z. B. nach Pause), damit nicht von alten Farben übergeblendet wird. */
     fun resetSmoothing() {
         smoothed = null
+        lastWasCut = false
     }
 
     /** Nach Neuverbindung oder Fremdsteuerung: beim nächsten Mal alles senden. */
@@ -107,5 +144,15 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
             brightness = if (sendBrightness) target.brightness else last!!.brightness,
         )
         return parts.joinToString(",", "{", "}")
+    }
+
+    companion object {
+        /** Anzahl Zigbee-Befehle, die Zigbee2MQTT aus einem Payload erzeugt (Helligkeit/Schalten und Farbe sind getrennt). */
+        fun zigbeeCommands(payload: String): Int {
+            var n = 0
+            if (payload.contains("\"brightness\"") || payload.contains("\"state\"")) n++
+            if (payload.contains("\"color\"") || payload.contains("\"color_temp\"")) n++
+            return n
+        }
     }
 }

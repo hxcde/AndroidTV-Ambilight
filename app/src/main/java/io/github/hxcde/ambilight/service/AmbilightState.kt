@@ -1,16 +1,10 @@
 package io.github.hxcde.ambilight.service
 
+import io.github.hxcde.ambilight.engine.EngineStats
+import io.github.hxcde.ambilight.engine.Mode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-
-enum class Mode(val label: String) {
-    STOPPED("Gestoppt"),
-    ACTIVE("Aktiv"),
-    PAUSED("Pausiert (Home Assistant)"),
-    PROTECTED("Geschützter Inhalt"),
-    STANDBY("Standby"),
-}
 
 data class Status(
     val mode: Mode = Mode.STOPPED,
@@ -18,6 +12,12 @@ data class Status(
     val mqttError: String? = null,
     val leftColor: Int = 0xFF000000.toInt(),
     val rightColor: Int = 0xFF000000.toInt(),
+    val stats: EngineStats? = null,
+    val dropped: Long = 0,
+    /** Anzeigename der App im Vordergrund (null = unbekannt oder Erkennung aus). */
+    val activeApp: String? = null,
+    /** null = Erkennung ausgeschaltet, false = Berechtigung fehlt. */
+    val appDetection: Boolean? = null,
 )
 
 /** Laufzeitstatus des Dienstes für die Oberfläche (gleicher Prozess). */
