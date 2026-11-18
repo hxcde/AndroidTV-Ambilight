@@ -6,6 +6,8 @@ blueprint:
     „Android Debug Bridge“, ganz ohne PC. Einmal ausführen genügt; danach in
     der App „Autostart“ einschalten. Voraussetzung: Netzwerk-Debugging am TV
     ist aktiv und die Verbindung von Home Assistant wurde am TV bestätigt.
+    Optional blendet er auch das Aufnahme-Symbol oben rechts aus (gilt dann
+    für alle Apps).
   domain: script
   source_url: https://github.com/hxcde/AndroidTV-Ambilight/blob/HEAD/blueprints/script/tv_ambilight/freigaben_setzen.yaml
   input:
@@ -17,8 +19,19 @@ blueprint:
           filter:
             - integration: androidtv
               domain: media_player
+    hide_indicator:
+      name: Aufnahme-Symbol ausblenden
+      description: >-
+        Blendet Androids Hinweis auf die laufende Bildschirmaufnahme aus
+        (Systemeinstellung, gilt für alle Apps).
+      default: false
+      selector:
+        boolean: {}
 
 mode: single
+
+variables:
+  hide_indicator: !input hide_indicator
 
 sequence:
   - action: androidtv.adb_command
@@ -30,3 +43,7 @@ sequence:
         cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService;
         appops set io.github.hxcde.ambilight GET_USAGE_STATS allow;
         appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow
+        {%- if hide_indicator %};
+        device_config put privacy media_projection_indicators_enabled false;
+        device_config set_sync_disabled_for_tests persistent
+        {%- endif %}

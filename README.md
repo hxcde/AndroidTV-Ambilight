@@ -291,6 +291,28 @@ adb connect <TV-IP>:5555
 adb shell "appops set io.github.hxcde.ambilight PROJECT_MEDIA allow; cmd notification allow_listener io.github.hxcde.ambilight/io.github.hxcde.ambilight.service.MediaListenerService; appops set io.github.hxcde.ambilight GET_USAGE_STATS allow; appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow"
 ```
 
+### Aufnahme-Symbol oben rechts ausblenden
+
+Solange das Ambilight läuft, zeigt Android oben rechts ein Symbol für die laufende Bildschirmaufnahme. Die App selbst kann es nicht ausblenden, eine Systemeinstellung schon (auf TCL getestet):
+
+```bash
+adb shell device_config put privacy media_projection_indicators_enabled false
+```
+```bash
+adb shell device_config set_sync_disabled_for_tests persistent
+```
+
+Der zweite Befehl verhindert, dass Google den Wert per Online-Konfiguration zurücksetzt. Danach das Ambilight neu starten. Das Symbol fehlt dann für **alle** Apps, die den Bildschirm aufnehmen. Rückgängig:
+
+```bash
+adb shell device_config delete privacy media_projection_indicators_enabled
+```
+```bash
+adb shell device_config set_sync_disabled_for_tests none
+```
+
+Der Skript-Blueprint **Freigaben setzen** kann das optional mit erledigen.
+
 Danach in der App **Autostart** einschalten. Ohne PC geht das auch mit einer ADB-App auf dem Handy (z. B. „Bugjaeger“) oder direkt aus Home Assistant (siehe [Home Assistant statt Freigaben](#home-assistant-statt-freigaben)).
 
 ## Einrichtung

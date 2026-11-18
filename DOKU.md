@@ -137,6 +137,14 @@ Einzeln:
    adb shell appops set io.github.hxcde.ambilight SYSTEM_ALERT_WINDOW allow
    ```
 9. Danach in der App „Autostart“ aktivieren.
+10. Optional das Aufnahme-Symbol oben rechts ausblenden (Systemeinstellung, gilt für alle Apps; auf TCL bestätigt):
+    ```bash
+    adb shell device_config put privacy media_projection_indicators_enabled false
+    ```
+    ```bash
+    adb shell device_config set_sync_disabled_for_tests persistent
+    ```
+    Rückgängig: `device_config delete privacy media_projection_indicators_enabled` und `device_config set_sync_disabled_for_tests none`.
 
 Zurücknehmen: dieselben Befehle mit `default` statt `allow`.
 
@@ -219,6 +227,7 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
 | Pausenlicht kommt über HA nicht | Cast-Player meldet für diese App keinen Status | In HA prüfen, ob der Cast-Media-Player beim Abspielen „Wiedergabe“ zeigt; sonst ADB-Integration oder Freigabe in der App |
 | Start aus Home Assistant passiert nichts | Android-TV-Remote-Integration öffnet den Link nicht, oder Dialog am TV wartet | Am TV nachsehen, ob „Jetzt starten“ angezeigt wird; `PROJECT_MEDIA` freigeben. Test per ADB: `am start -a android.intent.action.VIEW -d tvambilight://start` |
 | Alte Entitäten (z. B. „Ersatzfarbe links“ als Auswahl) bleiben in HA | Discovery-Config älterer Version | Wird beim Verbinden automatisch entfernt; sonst Entität in HA löschen |
+| Symbol (Cast/Bildschirm) oben rechts | Androids Hinweis auf laufende Bildschirmaufnahme | Per ADB ausblenden (Installation, Schritt 10); bleibt es nach Neustart, wurde der Sync nicht deaktiviert |
 | App: „Berechtigung fehlt“ | Nutzungsdatenzugriff nicht erteilt | `GET_USAGE_STATS allow` per ADB (Installation, Schritt 5) |
 | Profil greift nicht | App nicht in der Liste oder falsche App erkannt | Startseite zeigt „App: …“; diese App in den App-Profilen ankreuzen |
 | Nach Stopp falsches Licht | Zustand beim Start nicht gelesen (Z2M antwortete nicht binnen 2 s) | Log prüfen (`adb logcat -s Ambilight`); notfalls „Beim Stoppen: Licht aus“ |

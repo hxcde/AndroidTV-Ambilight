@@ -51,6 +51,9 @@
     <string name="setup_all_title">Alle Freigaben mit einem Befehl</string>
     <string name="setup_all_hint">Am PC im selben Netz: zuerst „adb connect &lt;TV-IP&gt;:5555“, dann diesen Befehl. Anschließend in den Einstellungen „Autostart“ einschalten.</string>
     <string name="setup_back">Zurück</string>
+    <string name="indicator_title">Optional: Aufnahme-Symbol ausblenden</string>
+    <string name="indicator_desc">Android zeigt oben rechts ein Symbol, solange der Bildschirm aufgenommen wird. Diese Systemeinstellung blendet es aus, und zwar für alle Apps. Ob sie gesetzt ist, kann die App nicht prüfen. Rückgängig: „device_config delete privacy media_projection_indicators_enabled“.</string>
+    <string name="indicator_adb">ADB: adb shell "device_config put privacy media_projection_indicators_enabled false; device_config set_sync_disabled_for_tests persistent"</string>
     <string name="perm_granted">✓ Erteilt</string>
     <string name="perm_missing">Fehlt</string>
     <string name="perm_via_ha">✓ Über Home Assistant</string>
