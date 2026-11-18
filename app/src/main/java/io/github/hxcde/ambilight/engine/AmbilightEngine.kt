@@ -14,6 +14,8 @@ data class EngineConfig(
     /** Normales Sendeintervall pro Lampe (1000 / Updates pro Sekunde). */
     val sendIntervalMs: Long = 200,
     val transitionSec: Double = 0.2,
+    /** Überblendung bei erkanntem Szenenwechsel (0 = harter Sprung). */
+    val cutTransitionSec: Double = 0.3,
     val blackMode: BlackMode = BlackMode.COLOR,
     val blackBrightness: Int = 80,
     val blackColorLeft: FixedColor = FixedColor.DEFAULT,
@@ -236,7 +238,7 @@ class AmbilightEngine(
             val since = now - lastSendAt[i]
             val due = since >= interval || (pendingCut[i] && since >= MIN_CUT_GAP_MS)
             if (!due) continue
-            val transition = if (pendingCut[i]) 0.0 else config.transitionSec
+            val transition = if (pendingCut[i]) config.cutTransitionSec else config.transitionSec
             val payload = o.payloadFor(target, config.pipeline, transition) ?: continue
             send(i, payload, now)
             lastSendAt[i] = now

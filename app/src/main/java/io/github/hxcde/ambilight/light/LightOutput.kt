@@ -17,10 +17,10 @@ data class PipelineConfig(
     val maxBrightness: Int = 254,
     /** true = Helligkeit bleibt auf [maxBrightness], es wird nur noch die Farbe gesendet (halbe Zigbee-Last). */
     val fixedBrightness: Boolean = false,
-    /** Harter Bildschnitt wird sofort und ohne Überblendung übernommen. */
+    /** Harter Bildschnitt wird sofort (mit kurzer Überblendung) übernommen statt geglättet. */
     val sceneCut: Boolean = true,
     /** Ab dieser Änderung (max. Kanal-Differenz in sRGB, 0..1) gilt ein Bild als Szenenwechsel. */
-    val sceneCutThreshold: Float = 0.25f,
+    val sceneCutThreshold: Float = 0.35f,
     /** Ab dieser xy-Änderung (|dx|+|dy|) wird neu gesendet. */
     val colorThreshold: Double = 0.005,
     /** Ab dieser Helligkeitsänderung (0..254) wird neu gesendet. */
@@ -49,6 +49,9 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
 
     private var smoothed: FloatArray? = null
     private var lastSent: LightState? = null
+    /** Erstes Bild eines möglichen Szenenwechsels; erst das nächste ähnliche Bild bestätigt ihn. */
+    private var cutCandidate: FloatArray? = null
+    private var cutWait = 0
 
     /** sRGB-Vorschaufarbe der letzten Berechnung (0..1). */
     var previewSrgb: FloatArray = FloatArray(3)
@@ -69,12 +72,32 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
         val s = if (prev == null) {
             linear.copyOf()
         } else if (cfg.sceneCut && maxSrgbDiff(prev, linear) > cfg.sceneCutThreshold) {
-            lastWasCut = true
-            linear.copyOf()
+            val candidate = cutCandidate
+            when {
+                // Zweites Bild bestätigt den Schnitt → übernehmen
+                candidate != null && maxSrgbDiff(candidate, linear) <= cfg.sceneCutThreshold / 2 -> {
+                    cutCandidate = null
+                    cutWait = 0
+                    lastWasCut = true
+                    linear.copyOf()
+                }
+                // Erstes abweichendes Bild: ein Bild abwarten (Blitze, Explosionen, Mündungsfeuer ignorieren)
+                cutWait < MAX_CUT_WAIT -> {
+                    cutCandidate = linear.copyOf()
+                    cutWait++
+                    prev
+                }
+                // Bild ändert sich dauernd stark: normal glätten
+                else -> {
+                    cutCandidate = null
+                    cutWait = 0
+                    smooth(prev, linear, cfg, dtMs, intervalMs)
+                }
+            }
         } else {
-            val keep = cfg.smoothing.coerceIn(0f, 0.95f).toDouble().pow(dtMs.toDouble() / intervalMs.coerceAtLeast(1)).toFloat()
-            val alpha = 1f - keep
-            FloatArray(3) { i -> prev[i] + (linear[i] - prev[i]) * alpha }
+            cutCandidate = null
+            cutWait = 0
+            smooth(prev, linear, cfg, dtMs, intervalMs)
         }
         smoothed = s
 
@@ -97,6 +120,12 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
         return LightState(true, xy[0], xy[1], brightness)
     }
 
+    private fun smooth(prev: FloatArray, linear: FloatArray, cfg: PipelineConfig, dtMs: Long, intervalMs: Long): FloatArray {
+        val keep = cfg.smoothing.coerceIn(0f, 0.95f).toDouble().pow(dtMs.toDouble() / intervalMs.coerceAtLeast(1)).toFloat()
+        val alpha = 1f - keep
+        return FloatArray(3) { i -> prev[i] + (linear[i] - prev[i]) * alpha }
+    }
+
     private fun maxSrgbDiff(a: FloatArray, b: FloatArray): Float {
         var d = 0f
         for (i in 0..2) d = max(d, abs(ColorMath.linearToSrgb(a[i]) - ColorMath.linearToSrgb(b[i])))
@@ -107,6 +136,8 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
     fun resetSmoothing() {
         smoothed = null
         lastWasCut = false
+        cutCandidate = null
+        cutWait = 0
     }
 
     /** Nach Neuverbindung oder Fremdsteuerung: beim nächsten Mal alles senden. */
@@ -147,6 +178,9 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
     }
 
     companion object {
+        /** So viele Bilder wird höchstens auf die Bestätigung eines Szenenwechsels gewartet. */
+        private const val MAX_CUT_WAIT = 2
+
         /** Anzahl Zigbee-Befehle, die Zigbee2MQTT aus einem Payload erzeugt (Helligkeit/Schalten und Farbe sind getrennt). */
         fun zigbeeCommands(payload: String): Int {
             var n = 0

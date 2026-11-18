@@ -48,6 +48,18 @@ object Options {
     /** Farben für Standard- und Pausenlicht (ohne „Eigene Farbe“). */
     val SCENE_COLOR = FIXED_COLOR.filter { it.value != "custom" }
 
+    val CUT_SENSITIVITY = listOf(
+        Option("LOW", "Niedrig (nur sehr harte Schnitte)"),
+        Option("MEDIUM", "Mittel"),
+        Option("HIGH", "Hoch (reagiert auf mehr Wechsel)"),
+    )
+
+    fun cutThreshold(value: String?): Float = when (value) {
+        "LOW" -> 0.45f
+        "HIGH" -> 0.25f
+        else -> 0.35f
+    }
+
     val BRIGHTNESS_MODE = listOf(
         Option("DYNAMIC", "Dynamisch (folgt dem Bild)"),
         Option("FIXED", "Fest (nur Farbe senden, halbe Zigbee-Last)"),

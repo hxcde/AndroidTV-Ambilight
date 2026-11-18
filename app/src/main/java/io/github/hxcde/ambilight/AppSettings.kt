@@ -50,6 +50,7 @@ class AppSettings(private val prefs: SharedPreferences) {
             maxBrightness = prefs.getInt(K_MAX_BRIGHTNESS, 254).coerceIn(1, 254),
             fixedBrightness = str(K_BRIGHTNESS_MODE, "DYNAMIC") == "FIXED",
             sceneCut = prefs.getBoolean(K_SCENE_CUT, true),
+            sceneCutThreshold = Options.cutThreshold(str(K_CUT_SENSITIVITY, "MEDIUM")),
         )
 
     val blackMode: BlackMode
@@ -101,6 +102,7 @@ class AppSettings(private val prefs: SharedPreferences) {
             pipeline = pipeline,
             sendIntervalMs = 1000L / updateRate,
             transitionSec = transitionSec,
+            cutTransitionSec = prefs.getInt(K_CUT_TRANSITION, 300).coerceIn(0, 2000) / 1000.0,
             blackMode = blackMode,
             blackBrightness = blackBrightness,
             blackColorLeft = blackColorLeft,
@@ -165,6 +167,8 @@ class AppSettings(private val prefs: SharedPreferences) {
         const val K_BLACK_COLOR_RIGHT_CUSTOM = "black_color_right_custom"
         const val K_BRIGHTNESS_MODE = "brightness_mode"
         const val K_SCENE_CUT = "scene_cut"
+        const val K_CUT_SENSITIVITY = "cut_sensitivity"
+        const val K_CUT_TRANSITION = "cut_transition_ms"
         const val K_STANDBY_ACTION = "standby_action"
         const val K_STOP_ACTION = "stop_action"
         const val K_APP_DETECTION = "app_detection"

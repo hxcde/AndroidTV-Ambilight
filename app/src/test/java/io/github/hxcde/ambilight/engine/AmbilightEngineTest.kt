@@ -100,13 +100,15 @@ class AmbilightEngineTest {
     }
 
     @Test
-    fun sceneCutIsSentImmediatelyWithoutTransition() {
+    fun sceneCutIsSentEarlyWithShortTransition() {
         connectWithSnapshot()
         engine.onFrame(frame(0x101010, 0x101010), 2_000)
         sent.clear()
-        engine.onFrame(frame(0xFF0000, 0x0000FF), 2_120) // > MIN_CUT_GAP, < Sendeintervall
+        engine.onFrame(frame(0xFF0000, 0x0000FF), 2_066) // erstes Bild: abwarten
+        assertTrue(sent.isEmpty())
+        engine.onFrame(frame(0xFF0000, 0x0000FF), 2_132) // bestätigt, < Sendeintervall
         val p = sentTo(leftSet).single()
-        assertTrue(p, p.contains("\"transition\":0.00"))
+        assertTrue(p, p.contains("\"transition\":0.30"))
     }
 
     @Test

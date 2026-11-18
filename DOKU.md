@@ -22,7 +22,9 @@ Alle Einstellungen werden in der App gesetzt (Einstellungen-Seite) und lokal in 
 | Z2M | Base-Topic | `zigbee2mqtt` | Z2M → Einstellungen → MQTT → `base_topic` |
 | Z2M | Lampe links/rechts | – | Friendly Names exakt wie in Z2M |
 | Bild | Updates pro Sekunde (HA) | 5 | Normaler Sendetakt pro Lampe. Analysiert wird unabhängig davon mit ~15 Bildern/s. |
-| Bild | Szenenwechsel sofort (HA) | an | Harter Bildschnitt (Kanaländerung > 25 %) wird sofort (frühestens 100 ms nach dem letzten Befehl) mit `transition` 0 gesendet |
+| Bild | Szenenwechsel sofort (HA) | an | Harter Bildschnitt wird sofort gesendet (frühestens 100 ms nach dem letzten Befehl), sobald das zweite Bild ihn bestätigt; einzelne Blitze werden ignoriert |
+| Bild | Empfindlichkeit Szenenwechsel (HA) | Mittel | Ab welcher Kanaländerung ein Schnitt gilt: Niedrig 45 %, Mittel 35 %, Hoch 25 % |
+| Bild | Übergang bei Szenenwechsel (HA) | 300 ms | `transition` für Szenenwechsel; 0 = harter Sprung |
 | Bild | Helligkeit (HA) | Dynamisch | „Fest“: Helligkeit bleibt auf Maximum, es geht nur noch der Farbbefehl raus (1 statt 2 Zigbee-Befehle) |
 | Bild | Übergangszeit | 0 (auto = 1/Rate) | `transition` im Z2M-Befehl, die Lampe blendet selbst über |
 | Bild | Randzone | 30 % | Anteil der Bildbreite pro Seite |
@@ -73,7 +75,7 @@ Nach jedem Befehl veröffentlicht Z2M den neuen Zustand auf `<base>/<friendly_na
 | `<app_topic>/live` | App → HA | höchstens alle 2 s bei Änderung: `{"left":"#E0702A","right":"#2A8FE0","left_rgb":[224,112,42],"right_rgb":[42,143,224]}` |
 | `<ha_prefix>/<switch\|sensor\|number\|select\|light\|button>/<node>/<id>/config` | App → HA | Discovery (retained). Ist Discovery aus, werden die Configs mit leerem Payload entfernt. Configs älterer Versionen (z. B. `select/black_color_left`) werden immer entfernt. |
 
-IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_mode`, `brightness_mode`, `standby_action`, `wake_action`, `pause_action`, `stop_action`, `scene_cut`, `app_detection` sowie die Lichter `black_light_left`, `black_light_right`, `standard_light_left`, `standard_light_right`, `pause_light`.
+IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_mode`, `brightness_mode`, `standby_action`, `wake_action`, `pause_action`, `stop_action`, `scene_cut`, `cut_sensitivity`, `cut_transition`, `app_detection` sowie die Lichter `black_light_left`, `black_light_right`, `standard_light_left`, `standard_light_right`, `pause_light`.
 
 Beispiel ohne Home Assistant:
 ```bash
@@ -218,6 +220,7 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
 | Lampen bleiben bei Netflix/Prime auf fester Farbe | DRM: Android liefert nur Schwarz | Erwartet. Ersatzmodus und Farben in den Einstellungen anpassen. |
 | „Verbindung testen“: „Benutzername oder Passwort falsch“ | Broker lehnt Login ab | MQTT-Benutzer prüfen; bei Mosquitto `password_file`/ACL kontrollieren |
 | Test OK, aber Lampen reagieren nicht | Falscher Friendly Name oder Base-Topic | Namen exakt wie in Z2M; Topic mit `mosquitto_sub -t '<base>/#' -v` prüfen |
+| Licht springt zu hart | Szenenwechsel-Erkennung zu empfindlich bzw. Übergang zu kurz | „Übergang bei Szenenwechsel“ 400–600 ms, „Empfindlichkeit“ Niedrig, oder Szenenwechsel aus; Glättung 50–60 % |
 | Lampen ruckeln oder hängen hinterher | Statistik: Verzögerung hoch/steigend, Zigbee-Befehle/s > 10 | Updates pro Sekunde auf 3–4 senken, Helligkeit „Fest“, Übergangszeit erhöhen; Koordinator näher an die Bars, Zigbee-Kanal abseits des WLANs |
 | Verzögerung zeigt „–“ | Keine Statusmeldung von Z2M | Lampen-Namen prüfen; Z2M-Option `output` (json) und kein `retain`/`debounce`-Sonderfall |
 | „Wiedergabe: Pause-Erkennung nicht freigegeben“ | Benachrichtigungs-Listener nicht freigegeben | `cmd notification allow_listener …` per ADB (Installation, Schritt 6) |

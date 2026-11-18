@@ -63,13 +63,39 @@ class LightOutputTest {
     }
 
     @Test
-    fun sceneCutJumpsImmediately() {
+    fun sceneCutIsConfirmedBySecondFrame() {
         val c = PipelineConfig(smoothing = 0.9f, saturation = 1f)
         val out = LightOutput("l", "z2m")
         out.target(floatArrayOf(0f, 0f, 0f), c)
+        // erstes abweichendes Bild: abwarten, alte Farbe halten
+        assertEquals(10, out.target(floatArrayOf(1f, 1f, 1f), c).brightness)
         assertFalse(out.lastWasCut)
+        // zweites gleiches Bild bestätigt den Schnitt
         assertEquals(254, out.target(floatArrayOf(1f, 1f, 1f), c).brightness)
         assertTrue(out.lastWasCut)
+    }
+
+    @Test
+    fun singleFlashIsIgnored() {
+        val c = PipelineConfig(smoothing = 0.9f, saturation = 1f)
+        val out = LightOutput("l", "z2m")
+        out.target(floatArrayOf(0f, 0f, 0f), c)
+        out.target(floatArrayOf(1f, 1f, 1f), c) // Blitz
+        val after = out.target(floatArrayOf(0f, 0f, 0f), c)
+        assertFalse(out.lastWasCut)
+        assertEquals(10, after.brightness)
+    }
+
+    @Test
+    fun permanentFlickerFallsBackToSmoothing() {
+        val c = PipelineConfig(smoothing = 0.5f, saturation = 1f)
+        val out = LightOutput("l", "z2m")
+        out.target(floatArrayOf(0f, 0f, 0f), c)
+        out.target(floatArrayOf(1f, 0f, 0f), c)
+        out.target(floatArrayOf(0f, 0f, 1f), c)
+        val b = out.target(floatArrayOf(0f, 1f, 0f), c).brightness
+        assertFalse(out.lastWasCut)
+        assertTrue("nach max. Wartezeit wird geglättet ($b)", b > 10)
     }
 
     @Test

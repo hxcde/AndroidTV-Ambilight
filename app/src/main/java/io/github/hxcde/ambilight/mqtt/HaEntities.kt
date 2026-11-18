@@ -99,6 +99,8 @@ object HaEntities {
         HaSelect("pause_action", "Bei Pause", AppSettings.K_PAUSE_ACTION, "mdi:pause-circle-outline", Options.PAUSE_ACTION, "PAUSE_LIGHT"),
         HaSelect("stop_action", "Beim Stoppen", AppSettings.K_STOP_ACTION, "mdi:stop-circle-outline", Options.LIGHT_ACTION, "RESTORE"),
         HaSwitch("scene_cut", "Szenenwechsel sofort", AppSettings.K_SCENE_CUT, "mdi:movie-open-outline", true),
+        HaSelect("cut_sensitivity", "Empfindlichkeit Szenenwechsel", AppSettings.K_CUT_SENSITIVITY, "mdi:tune-vertical", Options.CUT_SENSITIVITY, "MEDIUM"),
+        HaNumber("cut_transition", "Übergang Szenenwechsel", AppSettings.K_CUT_TRANSITION, "mdi:transition", 0, 1000, 50, 300, "ms"),
         HaSwitch("app_detection", "App-Erkennung", AppSettings.K_APP_DETECTION, "mdi:apps", true),
         HaLight(
             "black_light_left", "Ersatzlicht links", "mdi:television-off",

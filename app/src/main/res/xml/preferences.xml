@@ -28,6 +28,11 @@
             app:showSeekBarValue="true" app:summary="@string/pref_rate_summary" app:title="@string/pref_rate" />
         <SwitchPreferenceCompat app:defaultValue="true" app:iconSpaceReserved="false" app:key="scene_cut"
             app:summary="@string/pref_scene_cut_summary" app:title="@string/pref_scene_cut" />
+        <ListPreference app:defaultValue="MEDIUM" app:dependency="scene_cut" app:iconSpaceReserved="false" app:key="cut_sensitivity"
+            app:title="@string/pref_cut_sensitivity" app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference android:max="1000" app:defaultValue="300" app:dependency="scene_cut" app:iconSpaceReserved="false"
+            app:key="cut_transition_ms" app:min="0" app:seekBarIncrement="50" app:showSeekBarValue="true"
+            app:summary="@string/pref_cut_transition_summary" app:title="@string/pref_cut_transition" />
         <ListPreference app:defaultValue="DYNAMIC" app:iconSpaceReserved="false" app:key="brightness_mode"
             app:title="@string/pref_brightness_mode" app:useSimpleSummaryProvider="true" />
         <SeekBarPreference android:max="2000" app:defaultValue="0" app:iconSpaceReserved="false" app:key="transition_ms" app:min="0"

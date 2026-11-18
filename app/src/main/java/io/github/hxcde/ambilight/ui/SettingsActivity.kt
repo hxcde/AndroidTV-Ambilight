@@ -51,6 +51,7 @@ class SettingsActivity : AppCompatActivity() {
             options(AppSettings.K_BLACK_COLOR_LEFT, Options.FIXED_COLOR)
             options(AppSettings.K_BLACK_COLOR_RIGHT, Options.FIXED_COLOR)
             options(AppSettings.K_BRIGHTNESS_MODE, Options.BRIGHTNESS_MODE)
+            options(AppSettings.K_CUT_SENSITIVITY, Options.CUT_SENSITIVITY)
             options(AppSettings.K_STANDBY_ACTION, Options.LIGHT_ACTION)
             options(AppSettings.K_STOP_ACTION, Options.LIGHT_ACTION)
             options(AppSettings.K_WAKE_ACTION, Options.WAKE_ACTION)
