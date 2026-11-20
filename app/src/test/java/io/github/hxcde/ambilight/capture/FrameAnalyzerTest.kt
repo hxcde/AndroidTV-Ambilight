@@ -36,6 +36,17 @@ class FrameAnalyzerTest {
     }
 
     @Test
+    fun darkSceneKeepsItsColorInChroma() {
+        // Linke Zone fast schwarz (0x080808) mit einem kleinen blauen Licht, rechts grau
+        val r = analyze(frame { x, y -> if (x < 10 && y in 40..49) 0x2040FF else if (x < w / 2) 0x080808 else 0x404040 })
+        // Mittelwert ist dunkel, Farbton-Wert ist fast reines Blau
+        assertTrue(r.left[2] < 0.2f)
+        assertTrue("Blau dominiert: ${r.leftChroma.toList()}", r.leftChroma[2] > 0.8f && r.leftChroma[0] < 0.1f)
+        // gleichmäßig graue Zone: beide gleich
+        assertEquals(r.right[0], r.rightChroma[0], 1e-4f)
+    }
+
+    @Test
     fun blackFrameDetected() {
         assertTrue(analyze(frame { _, _ -> 0 }).isBlack)
         assertFalse(analyze(frame { _, _ -> 0x101010 }).isBlack)

@@ -50,6 +50,8 @@ class AppSettings(private val prefs: SharedPreferences) {
             maxBrightness = prefs.getInt(K_MAX_BRIGHTNESS, 254).coerceIn(1, 254),
             fixedBrightness = str(K_BRIGHTNESS_MODE, "DYNAMIC") == "FIXED",
             sceneCut = prefs.getBoolean(K_SCENE_CUT, true),
+            darkBoost = prefs.getInt(K_DARK_BOOST, 50).coerceIn(0, 100) / 100f,
+            chromaWeighting = prefs.getBoolean(K_CHROMA_WEIGHTING, true),
             sceneCutThreshold = Options.cutThreshold(str(K_CUT_SENSITIVITY, "MEDIUM")),
         )
 
@@ -167,6 +169,8 @@ class AppSettings(private val prefs: SharedPreferences) {
         const val K_BLACK_COLOR_RIGHT_CUSTOM = "black_color_right_custom"
         const val K_BRIGHTNESS_MODE = "brightness_mode"
         const val K_SCENE_CUT = "scene_cut"
+        const val K_DARK_BOOST = "dark_boost"
+        const val K_CHROMA_WEIGHTING = "chroma_weighting"
         const val K_CUT_SENSITIVITY = "cut_sensitivity"
         const val K_CUT_TRANSITION = "cut_transition_ms"
         const val K_STANDBY_ACTION = "standby_action"

@@ -231,9 +231,10 @@ class AmbilightEngine(
         val dt = if (lastFrameAt == 0L) interval else (now - lastFrameAt).coerceIn(1, 1_000)
         lastFrameAt = now
         val zones = arrayOf(r.left, r.right)
+        val chromas = arrayOf(r.leftChroma, r.rightChroma)
         for (i in 0..1) {
             val o = outputs[i]
-            val target = o.target(zones[i], config.pipeline, dt, interval)
+            val target = o.target(zones[i], config.pipeline, dt, interval, chromas[i])
             if (o.lastWasCut) pendingCut[i] = true
             val since = now - lastSendAt[i]
             val due = since >= interval || (pendingCut[i] && since >= MIN_CUT_GAP_MS)

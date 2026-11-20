@@ -30,6 +30,8 @@ Alle Einstellungen werden in der App gesetzt (Einstellungen-Seite) und lokal in 
 | Bild | Randzone | 30 % | Anteil der Bildbreite pro Seite |
 | Bild | Glättung / Sättigung (HA) | 30 % / 130 % | Glättung = Anteil der alten Farbe pro Sendeintervall, unabhängig von der Bildrate |
 | Bild | Helligkeit min/max (HA) | 10 / 254 | Z2M-Skala 1–254 |
+| Bild | Farbe aus hellen Bildteilen (HA) | an | Farbton = nach (max. Kanal)² gewichteter Mittelwert der Zone; Helligkeit weiter aus dem einfachen Mittelwert |
+| Bild | Dunkle Szenen anheben (HA) | 50 % | Helligkeitskurve: Stufe = V^γ mit γ = 1 − 0,6 × Wert (0 % linear, 50 % → γ 0,7, 100 % → γ 0,4); Schwarz und Weiß bleiben bei min/max |
 | Geschützte Inhalte | Bei schwarzem Bild (HA) | Feste Farbe | Feste Farbe pro Lampe, letzte Farbe halten, Licht aus oder nichts tun. Gilt auch für App-Profil „Sofort Ersatzmodus“. |
 | Geschützte Inhalte | Farbe links/rechts (HA) | Warmweiß | Vorgaben oder „Eigene Farbe …“ als `#RRGGBB` (Hex nur in der App) |
 | Geschützte Inhalte | Helligkeit (HA) | 80 | Gilt für beide Lampen im Ersatzmodus |
@@ -75,7 +77,7 @@ Nach jedem Befehl veröffentlicht Z2M den neuen Zustand auf `<base>/<friendly_na
 | `<app_topic>/live` | App → HA | höchstens alle 2 s bei Änderung: `{"left":"#E0702A","right":"#2A8FE0","left_rgb":[224,112,42],"right_rgb":[42,143,224]}` |
 | `<ha_prefix>/<switch\|sensor\|number\|select\|light\|button>/<node>/<id>/config` | App → HA | Discovery (retained). Ist Discovery aus, werden die Configs mit leerem Payload entfernt. Configs älterer Versionen (z. B. `select/black_color_left`) werden immer entfernt. |
 
-IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_mode`, `brightness_mode`, `standby_action`, `wake_action`, `pause_action`, `stop_action`, `scene_cut`, `cut_sensitivity`, `cut_transition`, `app_detection` sowie die Lichter `black_light_left`, `black_light_right`, `standard_light_left`, `standard_light_right`, `pause_light`.
+IDs für `config/<id>`: `brightness_max`, `brightness_min`, `update_rate`, `smoothing`, `saturation`, `black_mode`, `brightness_mode`, `standby_action`, `wake_action`, `pause_action`, `stop_action`, `scene_cut`, `cut_sensitivity`, `cut_transition`, `dark_boost`, `chroma_weighting`, `app_detection` sowie die Lichter `black_light_left`, `black_light_right`, `standard_light_left`, `standard_light_right`, `pause_light`.
 
 Beispiel ohne Home Assistant:
 ```bash
@@ -220,6 +222,7 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
 | Lampen bleiben bei Netflix/Prime auf fester Farbe | DRM: Android liefert nur Schwarz | Erwartet. Ersatzmodus und Farben in den Einstellungen anpassen. |
 | „Verbindung testen“: „Benutzername oder Passwort falsch“ | Broker lehnt Login ab | MQTT-Benutzer prüfen; bei Mosquitto `password_file`/ACL kontrollieren |
 | Test OK, aber Lampen reagieren nicht | Falscher Friendly Name oder Base-Topic | Namen exakt wie in Z2M; Topic mit `mosquitto_sub -t '<base>/#' -v` prüfen |
+| Dunkle Szenen ohne erkennbare Farbe | Lampen sehr dunkel bzw. Farbe verwässert | „Dunkle Szenen anheben“ erhöhen, „Farbe aus hellen Bildteilen“ an; minimale Helligkeit 40–60 |
 | Licht springt zu hart | Szenenwechsel-Erkennung zu empfindlich bzw. Übergang zu kurz | „Übergang bei Szenenwechsel“ 400–600 ms, „Empfindlichkeit“ Niedrig, oder Szenenwechsel aus; Glättung 50–60 % |
 | Lampen ruckeln oder hängen hinterher | Statistik: Verzögerung hoch/steigend, Zigbee-Befehle/s > 10 | Updates pro Sekunde auf 3–4 senken, Helligkeit „Fest“, Übergangszeit erhöhen; Koordinator näher an die Bars, Zigbee-Kanal abseits des WLANs |
 | Verzögerung zeigt „–“ | Keine Statusmeldung von Z2M | Lampen-Namen prüfen; Z2M-Option `output` (json) und kein `retain`/`debounce`-Sonderfall |

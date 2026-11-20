@@ -113,6 +113,32 @@ class LightOutputTest {
     }
 
     @Test
+    fun chromaWeightingUsesBrightPartsForColor() {
+        val c = PipelineConfig(smoothing = 0f, saturation = 1f, chromaWeighting = true)
+        val out = LightOutput("l", "z2m")
+        // Mittelwert dunkles Grau-Blau, Farbton reines Blau
+        val t = out.target(floatArrayOf(0.01f, 0.01f, 0.03f), c, chroma = floatArrayOf(0f, 0f, 1f))
+        assertEquals(0.1355, t.x, 0.01)
+        assertEquals(0.0399, t.y, 0.01)
+        // ohne Gewichtung: Farbe aus dem Mittelwert (weniger gesättigt)
+        val plain = LightOutput("p", "z2m").target(floatArrayOf(0.01f, 0.01f, 0.03f), c.copy(chromaWeighting = false))
+        assertTrue(plain.x > t.x)
+    }
+
+    @Test
+    fun darkBoostLiftsDarkScenesOnly() {
+        val linear = PipelineConfig(smoothing = 0f, saturation = 1f, minBrightness = 60, maxBrightness = 254)
+        val boosted = linear.copy(darkBoost = 0.5f)
+        val dark = floatArrayOf(0.02f, 0.02f, 0.02f)
+        val bLinear = LightOutput("a", "z2m").target(dark, linear).brightness
+        val bBoost = LightOutput("b", "z2m").target(dark, boosted).brightness
+        assertTrue("dunkel angehoben: $bLinear → $bBoost", bBoost > bLinear + 10)
+        // Weiß bleibt bei Maximum, Schwarz bei Minimum
+        assertEquals(254, LightOutput("c", "z2m").target(floatArrayOf(1f, 1f, 1f), boosted).brightness)
+        assertEquals(60, LightOutput("d", "z2m").target(floatArrayOf(0f, 0f, 0f), boosted).brightness)
+    }
+
+    @Test
     fun zigbeeCommandCount() {
         assertEquals(2, LightOutput.zigbeeCommands("""{"state":"ON","brightness":10,"color":{"x":0.3,"y":0.3},"transition":0.20}"""))
         assertEquals(1, LightOutput.zigbeeCommands("""{"color":{"x":0.3,"y":0.3},"transition":0.20}"""))

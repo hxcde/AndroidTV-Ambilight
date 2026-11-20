@@ -103,6 +103,10 @@
     <string name="pref_smoothing">Glättung (%)</string>
     <string name="pref_saturation">Sättigung (%)</string>
     <string name="pref_min_brightness">Minimale Helligkeit</string>
+    <string name="pref_chroma_weighting">Farbe aus hellen Bildteilen</string>
+    <string name="pref_chroma_weighting_summary">Dunkle Pixel verwässern die Farbe nicht; dunkle Szenen behalten ihren Farbton</string>
+    <string name="pref_dark_boost">Dunkle Szenen anheben (%)</string>
+    <string name="pref_dark_boost_summary">0 = Helligkeit linear zum Bild; höher = dunkle Szenen heller, helle bleiben gleich</string>
     <string name="pref_max_brightness">Maximale Helligkeit</string>
     <string name="pref_brightness_mode">Helligkeit</string>
     <string name="pref_scene_cut">Szenenwechsel sofort umsetzen</string>

@@ -98,6 +98,8 @@ object HaEntities {
         HaSelect("wake_action", "Beim Einschalten", AppSettings.K_WAKE_ACTION, "mdi:power", Options.WAKE_ACTION, "STANDARD_UNTIL_PLAY"),
         HaSelect("pause_action", "Bei Pause", AppSettings.K_PAUSE_ACTION, "mdi:pause-circle-outline", Options.PAUSE_ACTION, "PAUSE_LIGHT"),
         HaSelect("stop_action", "Beim Stoppen", AppSettings.K_STOP_ACTION, "mdi:stop-circle-outline", Options.LIGHT_ACTION, "RESTORE"),
+        HaNumber("dark_boost", "Dunkle Szenen anheben", AppSettings.K_DARK_BOOST, "mdi:brightness-percent", 0, 100, 5, 50, "%"),
+        HaSwitch("chroma_weighting", "Farbe aus hellen Bildteilen", AppSettings.K_CHROMA_WEIGHTING, "mdi:palette-advanced", true),
         HaSwitch("scene_cut", "Szenenwechsel sofort", AppSettings.K_SCENE_CUT, "mdi:movie-open-outline", true),
         HaSelect("cut_sensitivity", "Empfindlichkeit Szenenwechsel", AppSettings.K_CUT_SENSITIVITY, "mdi:tune-vertical", Options.CUT_SENSITIVITY, "MEDIUM"),
         HaNumber("cut_transition", "Übergang Szenenwechsel", AppSettings.K_CUT_TRANSITION, "mdi:transition", 0, 1000, 50, 300, "ms"),

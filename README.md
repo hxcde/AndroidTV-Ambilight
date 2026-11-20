@@ -24,9 +24,10 @@ flowchart LR
 2. **Randzonen:** Pro Seite wird ein Streifen (Standard 30 % der Bildbreite) zu einer Farbe gemittelt. Schwarze Balken von Kinofilmen (oben/unten) und 4:3-Inhalten (links/rechts) werden erkannt und übersprungen, damit die Lampen nicht vom Balken, sondern vom Bild gesteuert werden.
 3. **Farbe aufbereiten:**
    - **Szenenwechsel:** Ein harter Bildschnitt wird sofort mit kurzer Überblendung (300 ms, einstellbar) übernommen. Erst das zweite Bild bestätigt den Schnitt, einzelne Blitze und Explosionen lösen also nichts aus. Alles andere wird geglättet, damit nichts flackert.
+   - **Farbe aus den hellen Bildteilen:** Der Farbton wird nach Helligkeit gewichtet, damit dunkle Pixel ihn nicht verwässern. In einer dunklen Szene mit blauem Licht bleibt die Lampe blau statt grau.
    - **Sättigung** anheben, weil gemittelte Farben sonst blass wirken.
    - **Umrechnung in das Hue-Farbsystem** (CIE xy), damit die Farben möglichst originalgetreu ankommen.
-   - **Helligkeit** folgt der Bildhelligkeit zwischen einstellbarem Minimum und Maximum, oder bleibt fest (siehe unten).
+   - **Helligkeit** folgt der Bildhelligkeit zwischen einstellbarem Minimum und Maximum, mit einer Kurve, die dunkle Szenen anhebt (einstellbar). Oder sie bleibt fest (siehe unten).
 4. **Sparsam senden:** Zigbee ist das Nadelöhr, nicht die App. Ein Befehl geht nur raus, wenn sich Farbe oder Helligkeit spürbar geändert haben, im normalen Takt höchstens 5-mal pro Sekunde (einstellbar). Szenenwechsel dürfen sofort raus. Die Lampe blendet über `transition` selbst weich über.
 5. **Zigbee2MQTT** setzt die Befehle (`zigbee2mqtt/<Lampe>/set`) auf Zigbee um. Seine Statusmeldung danach nutzt die App, um die echte Verzögerung bis zur Lampe zu messen.
 
@@ -34,6 +35,7 @@ flowchart LR
 
 - Ambilight für alle Apps auf dem TV, die ihr Bild nicht schützen (z. B. Plex, Jellyfin, Live-TV-Apps, oft auch YouTube)
 - **Szenenwechsel sofort:** harte Schnitte ohne Verzögerung, mit kurzer, einstellbarer Überblendung; Blitze werden ignoriert
+- **Dunkle Szenen mit Farbe:** Farbton aus den hellen Bildteilen und einstellbare Anhebung dunkler Szenen; dunkle Filme bleiben farbig, ohne dass alles gleich hell wird
 - **Helligkeitsmodus „Fest“:** nur noch Farbe senden, halbiert die Zigbee-Last (ein statt zwei Befehle pro Update)
 - **Ersatzmodus für Netflix, Prime & Co:** feste Farbe pro Lampe, letzte Farbe halten oder Licht aus
 - **TV an → Standardlicht, TV aus → Licht aus:** Beim Einschalten gehen die Lampen auf ein frei wählbares Standardlicht (z. B. Warmweiß), bis etwas abgespielt wird; beim Ausschalten gehen sie aus.
@@ -99,7 +101,7 @@ Ja. Es muss nichts zusätzlich installiert werden: Der Dienst ist Teil der App u
 | MQTT und Zigbee2MQTT | Bild und Farbe |
 |---|---|
 | ![MQTT](docs/screenshots/04_einstellungen_mqtt.png) | ![Bild](docs/screenshots/05_einstellungen_bild.png) |
-| Broker-Adresse und Port (der Broker, mit dem Z2M verbunden ist), Benutzer, Passwort, optional TLS. Darunter das Z2M-Base-Topic und die **Friendly Names** der beiden Lampen, exakt wie in Z2M. | **Updates pro Sekunde**, **Szenenwechsel sofort** (mit Empfindlichkeit und Übergang), **Helligkeit** (Dynamisch oder Fest), **Übergangszeit**, **Randzone**, **Glättung**, **Sättigung**, **minimale/maximale Helligkeit**. |
+| Broker-Adresse und Port (der Broker, mit dem Z2M verbunden ist), Benutzer, Passwort, optional TLS. Darunter das Z2M-Base-Topic und die **Friendly Names** der beiden Lampen, exakt wie in Z2M. | **Updates pro Sekunde**, **Szenenwechsel sofort** (mit Empfindlichkeit und Übergang), **Helligkeit** (Dynamisch oder Fest), **Farbe aus hellen Bildteilen**, **Dunkle Szenen anheben**, **Übergangszeit**, **Randzone**, **Glättung**, **Sättigung**, **minimale/maximale Helligkeit**. |
 
 | Ersatzfarben | App-Profile |
 |---|---|
@@ -168,9 +170,9 @@ Mit aktiver MQTT-Discovery erscheint in Home Assistant automatisch das Gerät **
 | Farbe links, Farbe rechts | Sensoren | Aktuelle Lampenfarbe als `#RRGGBB`, Attribut `rgb_color` für Dashboards; höchstens alle 2 s aktualisiert |
 | Verzögerung, Zigbee-Befehle | Sensoren (Diagnose) | Ø-Verzögerung in ms und Zigbee-Befehle pro Sekunde, alle 10 s aktualisiert |
 | Ersatzlicht links/rechts, Standardlicht links/rechts, Pausenlicht | Licht (Konfiguration) | **Farbrad und Helligkeit** für die festen Lichtfarben. Wirkt sofort, auch während der jeweilige Modus aktiv ist. Bleibt immer „an“, weil es eine Einstellung und keine Lampe ist. |
-| Helligkeit maximal/minimal, Updates pro Sekunde, Glättung, Sättigung, Übergang Szenenwechsel | Zahlen (Konfiguration) | Schieberegler, wirken sofort |
+| Helligkeit maximal/minimal, Updates pro Sekunde, Glättung, Sättigung, Übergang Szenenwechsel, Dunkle Szenen anheben | Zahlen (Konfiguration) | Schieberegler, wirken sofort |
 | Ersatzmodus, Helligkeitsmodus, Empfindlichkeit Szenenwechsel, Beim Einschalten, Bei Pause, Bei TV-Standby, Beim Stoppen | Auswahl (Konfiguration) | Wie in der App |
-| Szenenwechsel sofort, App-Erkennung | Schalter (Konfiguration) | Wie in der App |
+| Szenenwechsel sofort, Farbe aus hellen Bildteilen, App-Erkennung | Schalter (Konfiguration) | Wie in der App |
 
 Ist der TV aus oder die App beendet, werden alle Entitäten als „nicht verfügbar“ angezeigt. Tipp: Die Live-Farben ändern sich laufend; wer sie nicht in der Historie braucht, schließt `sensor.tv_ambilight_farbe_links`/`_rechts` im `recorder` aus.
 
@@ -324,7 +326,7 @@ Danach in der App **Autostart** einschalten. Ohne PC geht das auch mit einer ADB
 5. Zurück → **Verbindung testen**: Links muss rot, rechts blau leuchten.
 6. **Ambilight starten**, bei Bedarf die Bildschirmfreigabe bestätigen.
 7. Unter **Standardlicht** und **Wiedergabe und Pause** die Farben und Helligkeiten nach Geschmack einstellen.
-8. Ein paar Minuten schauen und die **Statistik** prüfen. Springt das Licht zu hart: **Übergang bei Szenenwechsel** erhöhen (z. B. 500 ms), **Empfindlichkeit** auf „Niedrig“ oder **Glättung** auf 50–60 %.
+8. Ein paar Minuten schauen und die **Statistik** prüfen. Sind dunkle Szenen zu blass: **Dunkle Szenen anheben** erhöhen (z. B. 60–70 %) statt die minimale Helligkeit hochzusetzen. Springt das Licht zu hart: **Übergang bei Szenenwechsel** erhöhen (z. B. 500 ms), **Empfindlichkeit** auf „Niedrig“ oder **Glättung** auf 50–60 %.
    Ist die Verzögerung hoch oder wächst sie, die Updates pro Sekunde senken oder die Helligkeit auf **Fest** stellen.
 
 ## Grenzen
@@ -332,7 +334,7 @@ Danach in der App **Autostart** einschalten. Ohne PC geht das auch mit einer ADB
 - **DRM-Apps** (Netflix, Prime Video, Disney+, teils YouTube) liefern nur Schwarz, dafür gibt es Ersatzmodus und App-Profile.
 - **HDMI-Eingänge** des TVs laufen am Android-System vorbei und können nicht ausgelesen werden.
 - **Zigbee ist kein Streaming-Protokoll.** Etwa 4–6 Updates pro Sekunde und Lampe sind realistisch (mit Helligkeit „Fest“ etwas mehr); das reicht für flüssiges Stimmungslicht, aber nicht für Blitzeffekte. Das schnellere Hue-Entertainment-Streaming gibt es nur mit Hue Bridge.
-- Auf einem echten TV ist die Version 0.5.0 noch nicht getestet; ebenso der Start per Android-TV-Remote-Integration (`tvambilight://start`), die Blueprints und welche Apps ihren Pausenstatus über Google Cast melden. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
+- Auf einem echten TV ist die Version 0.5.3 noch nicht getestet; ebenso der Start per Android-TV-Remote-Integration (`tvambilight://start`), die Blueprints und welche Apps ihren Pausenstatus über Google Cast melden. Rückmeldungen zu Update-Rate und Glättung gerne in [DOKU.md](./DOKU.md) nachtragen.
 
 ## Entwicklung
 

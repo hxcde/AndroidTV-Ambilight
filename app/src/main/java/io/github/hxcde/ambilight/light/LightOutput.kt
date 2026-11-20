@@ -17,6 +17,10 @@ data class PipelineConfig(
     val maxBrightness: Int = 254,
     /** true = Helligkeit bleibt auf [maxBrightness], es wird nur noch die Farbe gesendet (halbe Zigbee-Last). */
     val fixedBrightness: Boolean = false,
+    /** Dunkle Szenen anheben: 0 = lineare Helligkeit, 1 = stark angehoben (Gamma 0,4). */
+    val darkBoost: Float = 0f,
+    /** Farbton aus den hellen Bildteilen statt aus dem Mittelwert aller Pixel. */
+    val chromaWeighting: Boolean = false,
     /** Harter Bildschnitt wird sofort (mit kurzer Überblendung) übernommen statt geglättet. */
     val sceneCut: Boolean = true,
     /** Ab dieser Änderung (max. Kanal-Differenz in sRGB, 0..1) gilt ein Bild als Szenenwechsel. */
@@ -48,6 +52,7 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
     val stateTopic: String = "$base/$friendlyName"
 
     private var smoothed: FloatArray? = null
+    private var smoothedChroma: FloatArray? = null
     private var lastSent: LightState? = null
     /** Erstes Bild eines möglichen Szenenwechsels; erst das nächste ähnliche Bild bestätigt ihn. */
     private var cutCandidate: FloatArray? = null
@@ -66,9 +71,18 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
      * @param dtMs Zeit seit dem letzten Bild
      * @param intervalMs Sendeintervall; die Glättung ist darauf bezogen und damit unabhängig von der Bildrate
      */
-    fun target(linear: FloatArray, cfg: PipelineConfig, dtMs: Long = 200, intervalMs: Long = 200): LightState {
+    fun target(
+        linear: FloatArray,
+        cfg: PipelineConfig,
+        dtMs: Long = 200,
+        intervalMs: Long = 200,
+        chroma: FloatArray = linear,
+    ): LightState {
         val prev = smoothed
+        val prevChroma = smoothedChroma ?: prev
         lastWasCut = false
+        var cut = false
+        var hold = false
         val s = if (prev == null) {
             linear.copyOf()
         } else if (cfg.sceneCut && maxSrgbDiff(prev, linear) > cfg.sceneCutThreshold) {
@@ -79,12 +93,14 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
                     cutCandidate = null
                     cutWait = 0
                     lastWasCut = true
+                    cut = true
                     linear.copyOf()
                 }
                 // Erstes abweichendes Bild: ein Bild abwarten (Blitze, Explosionen, Mündungsfeuer ignorieren)
                 cutWait < MAX_CUT_WAIT -> {
                     cutCandidate = linear.copyOf()
                     cutWait++
+                    hold = true
                     prev
                 }
                 // Bild ändert sich dauernd stark: normal glätten
@@ -100,17 +116,34 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
             smooth(prev, linear, cfg, dtMs, intervalMs)
         }
         smoothed = s
+        // Farbton läuft parallel mit (gleiche Glättung, Szenenwechsel und Wartezeit)
+        val c = when {
+            prev == null || prevChroma == null || cut -> chroma.copyOf()
+            hold -> prevChroma
+            else -> smooth(prevChroma, chroma, cfg, dtMs, intervalMs)
+        }
+        smoothedChroma = c
 
-        val srgb = FloatArray(3) { ColorMath.linearToSrgb(s[it]) }
+        // Helligkeit aus dem Mittelwert, optional mit angehobenen dunklen Szenen
+        val v = run {
+            val srgbAvg = FloatArray(3) { ColorMath.linearToSrgb(s[it]) }
+            max(srgbAvg[0], max(srgbAvg[1], srgbAvg[2]))
+        }
+        val gamma = 1.0 - 0.6 * cfg.darkBoost.coerceIn(0f, 1f)
+        val level = v.toDouble().pow(gamma).toFloat()
+
+        // Farbe aus dem gewichteten Mittel (helle Bildteile) bzw. dem einfachen Mittelwert
+        val colorSource = if (cfg.chromaWeighting) c else s
+        val srgb = FloatArray(3) { ColorMath.linearToSrgb(colorSource[it]) }
         val boosted = ColorMath.boostSaturation(srgb, cfg.saturation)
-        previewSrgb = boosted
+        val bMax = max(boosted[0], max(boosted[1], boosted[2]))
+        previewSrgb = if (bMax > 1e-6f) FloatArray(3) { boosted[it] / bMax * level } else boosted
         val minB = cfg.minBrightness.coerceIn(1, 254)
         val maxB = cfg.maxBrightness.coerceIn(minB, 254)
         val brightness = if (cfg.fixedBrightness) {
             maxB
         } else {
-            val v = max(boosted[0], max(boosted[1], boosted[2]))
-            (minB + (maxB - minB) * v).roundToInt().coerceIn(minB, maxB)
+            (minB + (maxB - minB) * level).roundToInt().coerceIn(minB, maxB)
         }
         val xy = ColorMath.linearRgbToXy(
             ColorMath.srgbToLinear(boosted[0]),
@@ -135,6 +168,7 @@ class LightOutput(val friendlyName: String, baseTopic: String) {
     /** Setzt die Glättung zurück (z. B. nach Pause), damit nicht von alten Farben übergeblendet wird. */
     fun resetSmoothing() {
         smoothed = null
+        smoothedChroma = null
         lastWasCut = false
         cutCandidate = null
         cutWait = 0

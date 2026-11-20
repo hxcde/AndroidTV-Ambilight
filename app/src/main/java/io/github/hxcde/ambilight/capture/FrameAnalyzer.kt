@@ -1,6 +1,10 @@
 package io.github.hxcde.ambilight.capture
 
-/** Ergebnis eines analysierten Bildes. Farben sind linear (0..1). */
+/**
+ * Ergebnis eines analysierten Bildes. Farben sind linear (0..1).
+ * [left]/[right] sind der einfache Mittelwert (für die Helligkeit), [leftChroma]/[rightChroma]
+ * nach Helligkeit gewichtet (für den Farbton, damit dunkle Pixel die Farbe nicht verwässern).
+ */
 class FrameResult(
     val left: FloatArray,
     val right: FloatArray,
@@ -10,6 +14,8 @@ class FrameResult(
     val contentTop: Int,
     val contentRight: Int,
     val contentBottom: Int,
+    val leftChroma: FloatArray = left,
+    val rightChroma: FloatArray = right,
 )
 
 /**
@@ -75,7 +81,7 @@ class FrameAnalyzer {
         val zone = (contentWidth * zoneFraction.coerceIn(0.05f, 0.5f)).toInt().coerceAtLeast(1)
         val left = averageLinear(data, rowStride, pixelStride, cl, cl + zone, ct, cb)
         val right = averageLinear(data, rowStride, pixelStride, cr - zone, cr, ct, cb)
-        return FrameResult(left, right, isBlack, cl, ct, cr, cb)
+        return FrameResult(left[0], right[0], isBlack, cl, ct, cr, cb, left[1], right[1])
     }
 
     private fun detectBounds(width: Int, height: Int): IntArray {
@@ -92,6 +98,7 @@ class FrameAnalyzer {
         return intArrayOf(left, top, right, bottom)
     }
 
+    /** Liefert [Mittelwert, nach Helligkeit gewichteter Mittelwert] der Zone, jeweils linear. */
     private fun averageLinear(
         data: ByteArray,
         rowStride: Int,
@@ -100,23 +107,42 @@ class FrameAnalyzer {
         x1: Int,
         y0: Int,
         y1: Int,
-    ): FloatArray {
+    ): Array<FloatArray> {
         val lut = ColorMath.SRGB_TO_LINEAR
         var r = 0.0
         var g = 0.0
         var b = 0.0
+        var wr = 0.0
+        var wg = 0.0
+        var wb = 0.0
+        var wSum = 0.0
         var n = 0
         for (y in y0 until y1) {
             var p = y * rowStride + x0 * pixelStride
             for (x in x0 until x1) {
-                r += lut[data[p].toInt() and 0xFF]
-                g += lut[data[p + 1].toInt() and 0xFF]
-                b += lut[data[p + 2].toInt() and 0xFF]
+                val ri = data[p].toInt() and 0xFF
+                val gi = data[p + 1].toInt() and 0xFF
+                val bi = data[p + 2].toInt() and 0xFF
+                val lr = lut[ri]
+                val lg = lut[gi]
+                val lb = lut[bi]
+                r += lr
+                g += lg
+                b += lb
+                // Gewicht = (max. Kanal)², helle Pixel bestimmen den Farbton
+                val m = (if (ri > gi) (if (ri > bi) ri else bi) else (if (gi > bi) gi else bi)) / 255.0
+                val w = m * m
+                wr += lr * w
+                wg += lg * w
+                wb += lb * w
+                wSum += w
                 n++
                 p += pixelStride
             }
         }
-        if (n == 0) return FloatArray(3)
-        return floatArrayOf((r / n).toFloat(), (g / n).toFloat(), (b / n).toFloat())
+        if (n == 0) return arrayOf(FloatArray(3), FloatArray(3))
+        val avg = floatArrayOf((r / n).toFloat(), (g / n).toFloat(), (b / n).toFloat())
+        val chroma = if (wSum < 1e-6) avg.copyOf() else floatArrayOf((wr / wSum).toFloat(), (wg / wSum).toFloat(), (wb / wSum).toFloat())
+        return arrayOf(avg, chroma)
     }
 }
