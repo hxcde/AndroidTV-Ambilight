@@ -270,13 +270,14 @@ Android fragt dabei einmalig, ob die App, mit der du installierst, „unbekannte
 adb install -r TV-Ambilight.apk
 ```
 
-**Updates mit dem Skript (empfohlen):** `scripts/tv-update.sh` versucht ein normales Update; passt die Signatur nicht (z. B. Wechsel zwischen Release- und Einzel-APK), sichert es vorher die Einstellungen, installiert neu, spielt sie zurück und setzt die Freigaben. Ohne APK-Angabe lädt es die neueste Release-Version.
+**Updates mit dem Skript (empfohlen):** `scripts/tv-update.sh` versucht ein normales Update; passt die Signatur nicht (z. B. Wechsel zwischen Release- und Einzel-APK), sichert es vorher die Einstellungen, installiert neu, spielt sie zurück, setzt die Freigaben und startet das Ambilight. Ohne APK-Angabe lädt es die neueste Release-Version.
 ```bash
 scripts/tv-update.sh <TV-IP>
 ```
 ```bash
-scripts/tv-update.sh TV-Ambilight-0.5.3-debug.apk <TV-IP> --start
+scripts/tv-update.sh TV-Ambilight-0.5.3-debug.apk <TV-IP>
 ```
+Danach startet das Ambilight direkt im Hintergrund, ohne die App-Oberfläche (`--open` öffnet stattdessen die App, `--no-start` startet nichts).
 Sicherungen liegen in `~/.tv-ambilight-backups` (nur für dich lesbar, enthalten das MQTT-Passwort). Nach einer manuellen Deinstallation lässt sich eine Sicherung mit `--restore <Datei>` einspielen.
 
 ### Brauche ich ADB?

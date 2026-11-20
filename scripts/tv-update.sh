@@ -6,13 +6,15 @@
 #   2. Passt die Signatur nicht (z. B. Wechsel zwischen Release- und Einzel-APK), werden die
 #      Einstellungen per run-as gesichert, die App neu installiert und die Einstellungen zurückgespielt.
 #   3. Setzt die optionalen Freigaben (ohne Dialog starten, Pause-/App-Erkennung, Autostart).
+#   4. Startet das Ambilight im Hintergrund (ohne die App-Oberfläche zu öffnen).
 #
 # Aufruf (macOS/Linux):
-#   scripts/tv-update.sh [APK] [TV-IP[:PORT]] [--start] [--restore DATEI]
+#   scripts/tv-update.sh [APK] [TV-IP[:PORT]] [--open | --no-start] [--restore DATEI]
 #
 #   APK          Pfad zur APK. Ohne Angabe wird die neueste Release-Version von GitHub geladen.
 #   TV-IP        Wird per "adb connect" verbunden. Ohne Angabe wird das bereits verbundene Gerät genutzt.
-#   --start      Startet danach das Ambilight.
+#   --open       Öffnet danach die App-Oberfläche statt das Ambilight direkt zu starten.
+#   --no-start   Startet danach nichts.
 #   --restore F  Spielt eine gesicherte Einstellungsdatei ein (z. B. nach manueller Deinstallation).
 #
 # Sicherungen liegen in ~/.tv-ambilight-backups (nur für dich lesbar), denn sie enthalten das MQTT-Passwort.
@@ -27,7 +29,7 @@ BACKUP_DIR="${TV_AMBILIGHT_BACKUP_DIR:-$HOME/.tv-ambilight-backups}"
 
 APK=""
 TV=""
-START=0
+AFTER="start"
 RESTORE=""
 
 info() { printf '\033[1;34m▶\033[0m %s\n' "$*"; }
@@ -37,7 +39,9 @@ fail() { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --start) START=1 ;;
+        --start) AFTER="start" ;;
+        --open) AFTER="open" ;;
+        --no-start) AFTER="none" ;;
         --restore) shift; [ $# -gt 0 ] || fail "--restore braucht eine Datei"; RESTORE="$1" ;;
         -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *.apk) APK="$1" ;;
@@ -152,8 +156,15 @@ fi
 grant_permissions
 ok "Version jetzt: $(installed_version)"
 
-if [ "$START" = 1 ]; then
-    adb shell am start -a android.intent.action.VIEW -d tvambilight://start >/dev/null && ok "Ambilight gestartet"
-else
-    adb shell am start -n "$PKG/.ui.MainActivity" >/dev/null 2>&1 || true
-fi
+case "$AFTER" in
+    start)
+        # Unsichtbarer Start über tvambilight://start; mit PROJECT_MEDIA-Freigabe ohne Dialog
+        if adb shell am start -a android.intent.action.VIEW -d tvambilight://start >/dev/null 2>&1; then
+            ok "Ambilight gestartet (läuft im Hintergrund)"
+        else
+            warn "Ambilight konnte nicht gestartet werden; App am TV öffnen und starten"
+        fi
+        ;;
+    open) adb shell am start -n "$PKG/.ui.MainActivity" >/dev/null 2>&1 && ok "App geöffnet" ;;
+    none) ;;
+esac
