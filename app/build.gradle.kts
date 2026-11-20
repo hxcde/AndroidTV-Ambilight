@@ -31,6 +31,11 @@ android {
     }
 
     buildTypes {
+        // Ausgeliefert wird der Debug-Build (am TV getestet). Mit eigenem Schlüssel aus den CI-Secrets
+        // bekommt er eine feste Signatur, damit Updates ohne Deinstallation funktionieren.
+        debug {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

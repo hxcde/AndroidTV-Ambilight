@@ -186,22 +186,22 @@ Auslösen:
 
 ### Signatur
 
-Ohne hinterlegten Schlüssel signiert der Release-Workflow mit dem Debug-Schlüssel des CI-Laufs. Der wechselt bei jedem Lauf, Updates erfordern dann eine Deinstallation:
+Ohne hinterlegten Schlüssel signiert der Release-Workflow mit dem Debug-Schlüssel des jeweiligen CI-Laufs. Der ist bei jedem Lauf anders, Updates erfordern dann eine Deinstallation.
 
-```bash
-adb uninstall io.github.hxcde.ambilight
-```
+Mit eigenem Schlüssel (einmalig einrichten) baut der Workflow denselben Build wie bisher (Debug-Build, am TV getestet, per `run-as` sicherbar), signiert ihn aber immer mit diesem Schlüssel. Ab dann gehen alle Updates ohne Deinstallation.
 
-Für Updates ohne Deinstallation einmalig einen eigenen Schlüssel anlegen (lokal, sicher aufbewahren, **nie committen**):
+1. Schlüssel lokal erzeugen (macOS: `keytool` kommt mit `brew install openjdk`, Aufruf dann über `$(brew --prefix openjdk)/bin/keytool`). Bei Format PKCS12 gilt ein Passwort für Datei und Schlüssel:
+   ```bash
+   keytool -genkeypair -v -keystore tv-ambilight-release.jks -alias ambilight -keyalg RSA -keysize 4096 -validity 10000
+   ```
+2. Secrets im Repo anlegen (Settings → Secrets and variables → Actions → New repository secret):
+   - `RELEASE_KEYSTORE_BASE64`: Inhalt von `base64 -i tv-ambilight-release.jks` (macOS, einzeilig)
+   - `RELEASE_KEYSTORE_PASSWORD`: das Passwort
+   - `RELEASE_KEY_ALIAS`: `ambilight`
+   - `RELEASE_KEY_PASSWORD`: dasselbe Passwort
+3. `tv-ambilight-release.jks` und Passwort sicher aufbewahren (z. B. Passwortmanager), **nie committen** (`*.jks` steht in `.gitignore`). Geht der Schlüssel verloren, braucht das nächste Update wieder eine Deinstallation.
 
-```bash
-keytool -genkeypair -v -keystore tv-ambilight-release.jks -alias ambilight -keyalg RSA -keysize 4096 -validity 10000
-```
-```bash
-base64 -w0 tv-ambilight-release.jks
-```
-
-Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets anlegen: `RELEASE_KEYSTORE_BASE64` (Ausgabe von `base64`), `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` (`ambilight`), `RELEASE_KEY_PASSWORD`. Ab dann baut der Workflow eine signierte, mit R8 optimierte Release-APK. Beim Wechsel von Debug- auf Release-Signatur einmal deinstallieren.
+Beim ersten Wechsel auf den eigenen Schlüssel ist einmal eine Deinstallation nötig; vorher die Einstellungen per `run-as` sichern (siehe Troubleshooting „Einstellungen bei Neuinstallation behalten“).
 
 ## Betrieb & Wartung
 
@@ -234,6 +234,7 @@ Dann im Repo unter Settings → Secrets and variables → Actions diese Secrets 
 | Start aus Home Assistant passiert nichts | Android-TV-Remote-Integration öffnet den Link nicht, oder Dialog am TV wartet | Am TV nachsehen, ob „Jetzt starten“ angezeigt wird; `PROJECT_MEDIA` freigeben. Test per ADB: `am start -a android.intent.action.VIEW -d tvambilight://start` |
 | Alte Entitäten (z. B. „Ersatzfarbe links“ als Auswahl) bleiben in HA | Discovery-Config älterer Version | Wird beim Verbinden automatisch entfernt; sonst Entität in HA löschen |
 | Symbol (Cast/Bildschirm) oben rechts | Androids Hinweis auf laufende Bildschirmaufnahme | Per ADB ausblenden (Installation, Schritt 10); bleibt es nach Neustart, wurde der Sync nicht deaktiviert |
+| Einstellungen bei Neuinstallation behalten | Deinstallation löscht Einstellungen, Freigaben und die Client-ID (HA legt sonst ein neues Gerät an) | Vorher sichern: `adb shell run-as io.github.hxcde.ambilight cat shared_prefs/io.github.hxcde.ambilight_preferences.xml > ambilight-settings.xml`; nach der Installation (App nicht öffnen) per `adb push` nach `/data/local/tmp/` und `run-as … cp` zurück nach `shared_prefs/`; Freigaben neu setzen. Datei enthält das MQTT-Passwort. |
 | App: „Berechtigung fehlt“ | Nutzungsdatenzugriff nicht erteilt | `GET_USAGE_STATS allow` per ADB (Installation, Schritt 5) |
 | Profil greift nicht | App nicht in der Liste oder falsche App erkannt | Startseite zeigt „App: …“; diese App in den App-Profilen ankreuzen |
 | Nach Stopp falsches Licht | Zustand beim Start nicht gelesen (Z2M antwortete nicht binnen 2 s) | Log prüfen (`adb logcat -s Ambilight`); notfalls „Beim Stoppen: Licht aus“ |

@@ -37,7 +37,7 @@ jobs:
       - name: Unit-Tests
         run: ./gradlew --no-daemon testDebugUnitTest
 
-      - name: APK bauen (Release-Signatur)
+      - name: APK bauen (eigener, fester Schlüssel)
         if: env.HAS_RELEASE_KEY == 'true'
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -47,10 +47,10 @@ jobs:
         run: |
           export RELEASE_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
           echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RELEASE_KEYSTORE_FILE"
-          ./gradlew --no-daemon assembleRelease
+          ./gradlew --no-daemon assembleDebug
           rm -f "$RELEASE_KEYSTORE_FILE"
-          cp app/build/outputs/apk/release/app-release.apk TV-Ambilight.apk
-          echo "SIGNATURE=Release-Schlüssel" >> "$GITHUB_ENV"
+          cp app/build/outputs/apk/debug/app-debug.apk TV-Ambilight.apk
+          echo "SIGNATURE=eigener Schlüssel (Updates ohne Deinstallation)" >> "$GITHUB_ENV"
 
       - name: APK bauen (Debug-Signatur, kein Release-Schlüssel hinterlegt)
         if: env.HAS_RELEASE_KEY != 'true'
