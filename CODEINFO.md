@@ -49,6 +49,7 @@ app/src/test/                    JVM-Unit-Tests (u. a. engine/AmbilightEngineTes
 docs/screenshots/                Erzeugte Screenshots (TV-Auflösung 1920×1080)
 blueprints/automation/tv_ambilight/  Home-Assistant-Blueprints (mit TV starten, TV-Status übergeben, Raumlicht folgt Wiedergabe, abends dimmen)
 blueprints/script/tv_ambilight/      Skript-Blueprint „Freigaben setzen“ (androidtv.adb_command)
+scripts/tv-update.sh             Update per ADB mit Sichern/Zurückspielen der Einstellungen und Freigaben
 .github/workflows/build.yml      CI: Tests, APK-Build, Upload als Artefakt
 .github/workflows/release.yml    Release bei Tag v* oder manuell: APK als Release-Asset TV-Ambilight.apk
 ```
